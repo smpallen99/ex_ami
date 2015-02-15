@@ -29,9 +29,14 @@ Add the username and secret credentials to `manager.conf`
 
 ## Installation
 
-Add ex_ami to your `mix.exs` dependencies:
+Add ex_ami to your `mix.exs` dependencies and start the application:
 
 ```
+  def application do
+    [mod: {MyProject, []},
+    applications: [:ex_ami]]
+  end
+  
   defp deps do
     [{:ex_ami, github: "smpallen99/ex_ami"}]
   end
