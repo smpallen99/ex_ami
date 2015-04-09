@@ -125,6 +125,11 @@ defmodule ExAmi.Message do
     value == "Success"
   end
 
+  def is_response_error(%Message{} = message) do
+    {:ok, value} = get(message, "Response")
+    value == "Error"
+  end
+
   def is_response_complete(%Message{} = message) do
     case get(message, "Message") do
       :notfound -> true

@@ -2,12 +2,12 @@ defmodule ExAmi.Client.Originate do
   require Logger
   alias ExAmi.Client
  
-  def dial(sever_name, channel, other, variables \\ [], callback \\ nil)
-  def dial(server_name, channel, {context, extension, priority}, variables, callback) do
+  def dial(sever_name, channel, other, variables \\ [], callback \\ nil, opts \\ [])
+  def dial(server_name, channel, {context, extension, priority}, variables, callback, opts) do
     action_params = %{
       server_name: server_name, channel: channel, context: context,
       extension: extension, priority: priority, variables: variables,
-      callback: callback
+      callback: callback, other: opts
     }
 
     {:ok, client_pid} = ExAmi.Client.start_child(server_name)
@@ -18,19 +18,15 @@ defmodule ExAmi.Client.Originate do
     })
     {:ok, client_pid}
   end
-  def dial(server_name, channel, extension, variables, callback), do:
-    dial(server_name, channel, {"from-internal", extension, "1"}, variables, callback)
+  def dial(server_name, channel, extension, variables, callback, opts), do:
+    dial(server_name, channel, {"from-internal", extension, "1"}, variables, callback, opts)
         
-  # For testing purposes
-  # TODO: Remove
-  def dial(ch, extension), do: dial(:asterisk, "UCX/#{ch}@#{ch}", "#{extension}")
-
-  
   #####################
   # Listener
  
   def event_listener(client_pid, _server_name, 
       %{attributes: attributes}, action_params) do
+    
     case Dict.get(attributes, "Event") do
       "FullyBooted" -> 
         send_action(client_pid, action_params)
@@ -40,20 +36,19 @@ defmodule ExAmi.Client.Originate do
         if String.match? event_channel, ~r/#{orig_channel}/ do
           Client.stop client_pid
         end
-      _ -> :ok
     end
   end
 
   def send_action(client_pid, %{
       channel: channel, context: context, extension: extension, 
-      priority: priority, variables: variables, callback: callback }) do
+      priority: priority, variables: variables, callback: callback, other: opts }) do
 
     action = ExAmi.Message.new_action(
         "Originate",
         [
             {"Channel", channel}, {"Exten", extension},
             {"Context", context}, {"Priority", priority}
-        ],
+        ] ++ opts,
         variables
       )
     ExAmi.Client.send_action(client_pid, action, callback)

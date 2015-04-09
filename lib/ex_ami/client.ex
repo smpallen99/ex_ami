@@ -100,8 +100,6 @@ defmodule ExAmi.Client do
         :error_logger.error_msg('Cant login: ~p', [response])
         :erlang.error(:cantlogin)
       true -> 
-        # if state.respond_to, 
-        #   do: send(state.respond_to, :connected)
         next_state state, :receiving
     end
   end
@@ -114,12 +112,17 @@ defmodule ExAmi.Client do
     {action, :none, events, callback} = Dict.fetch!(actions, action_id)
     # See if we should dispatch this right away or wait for the events needed
     # to complete the response.
-    new_actions = case ExAmi.Message.is_response_complete(response) do 
-      true ->
+    new_actions = cond do
+      ExAmi.Message.is_response_error(response) -> 
+        if callback, do: callback.(response, events)
+        actions
+
+      ExAmi.Message.is_response_complete(response) -> 
         # Complete response. Dispatch and remove the action from the queue.
         if callback, do: callback.(response, events)
         Dict.delete(actions, action_id)
-      false ->
+        
+      true ->
         # Save the response so we can receive the associated events to
         # dispatch later.
         Dict.put(actions, action_id, {action, response, [], callback})
@@ -146,7 +149,7 @@ defmodule ExAmi.Client do
               false ->
                 Dict.put(actions, action_id, {action, response, new_events, callback})
               true ->
-                if callback, do: callback.(response, new_events)
+                if callback, do: callback.(response, Enum.reverse(new_events))
                 Dict.delete state.actions, action_id
             end
             struct(state, actions: new_actions)
@@ -207,13 +210,12 @@ defmodule ExAmi.Client do
   defp dispatch_event(server_name, event, listeners) do
     Enum.each(listeners,  
       fn({function, predicate}) ->
-        spawn(fn ->
+        # spawn(fn ->
           case :erlang.apply(predicate, [event]) do 
-            true ->
-              function.(server_name, event)
+            true -> function.(server_name, event)
             _ -> :ok
           end
-        end)
+        # end)
       end)
   end
 end
