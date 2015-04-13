@@ -27,7 +27,8 @@ defmodule ExAmi.Mixfile do
   # Type `mix help deps` for more examples and options
   defp deps do
     [
-      {:pavlov, "~> 0.1.2", only: :test}
+      {:pavlov, "~> 0.1.2", only: :test},
+      {:ex_ami, path: "../gen_fsm"}
     ]
   end
 end
