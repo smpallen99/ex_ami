@@ -8,27 +8,15 @@ defmodule ExAmi.Mixfile do
      deps: deps]
   end
 
-  # Configuration for the OTP application
-  #
-  # Type `mix help compile.app` for more information
   def application do
     [ mod: {ExAmi, []},
       applications: [:logger]]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # Type `mix help deps` for more examples and options
   defp deps do
     [
       {:pavlov, "~> 0.1.2", only: :test},
-      {:ex_ami, path: "../gen_fsm"}
+      {:ex_ami, github: "smpallen99/gen_fsm"}
     ]
   end
 end
