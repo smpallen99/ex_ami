@@ -16,7 +16,7 @@ defmodule ExAmi.Mixfile do
   defp deps do
     [
       {:pavlov, "~> 0.1.2", only: :test},
-      {:ex_fsm, github: "smpallen99/gen_fsm"}
+      {:gen_fsm, github: "smpallen99/gen_fsm"}
     ]
   end
 end
