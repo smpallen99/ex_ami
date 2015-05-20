@@ -112,6 +112,7 @@ defmodule ExAmi.Message do
   defp _unmarshall([key,value], %Message{} = message), 
     do: set(message, key, value)
   defp _unmarshall([], %Message{} = message), do: message
+  defp _unmarshall(["ReportBlock"], %Message{} = message), do: message
   defp _unmarshall(other, %Message{} = message) do 
     Logger.error("_unmarshall invalid input #{inspect other}")
     message
