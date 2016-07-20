@@ -3,8 +3,9 @@ defmodule ExAmi.Mixfile do
 
   def project do
     [app: :ex_ami,
-     version: "0.0.2",
-     elixir: "~> 1.0-0",
+     version: "0.1.0",
+     elixir: "~> 1.3",
+     package: package,
      deps: deps]
   end
 
@@ -15,8 +16,13 @@ defmodule ExAmi.Mixfile do
 
   defp deps do
     [
-      {:pavlov, "~> 0.1.2", only: :test},
       {:gen_fsm, github: "smpallen99/gen_fsm"}
     ]
+  end
+  defp package do
+    [ maintainers: ["Stephen Pallen"],
+      licenses: ["MIT"],
+      links: %{ "Github" => "https://github.com/smpallen99/ex_admin"},
+      files: ~w(lib README.md mix.exs LICENSE)]
   end
 end
