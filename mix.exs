@@ -6,6 +6,10 @@ defmodule ExAmi.Mixfile do
      version: "0.1.0",
      elixir: "~> 1.3",
      package: package,
+     name: "ExAmi",
+     description: """
+     An Elixir Asterisk AMI Client Library.
+     """,
      deps: deps]
   end
 
