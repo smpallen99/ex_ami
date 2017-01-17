@@ -5,12 +5,12 @@ defmodule ExAmi.Mixfile do
     [app: :ex_ami,
      version: "0.1.0",
      elixir: "~> 1.3",
-     package: package,
+     package: package(),
      name: "ExAmi",
      description: """
      An Elixir Asterisk AMI Client Library.
      """,
-     deps: deps]
+     deps: deps()]
   end
 
   def application do

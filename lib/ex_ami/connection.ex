@@ -4,15 +4,15 @@ defmodule ExAmi.Connection do
               send: &__MODULE__.send_not_implemented/1,
               close: &__MODULE__.close_not_implemented/1
 
-    def new(), do: %__MODULE__{} 
-    def new(opts), do: struct(new, opts)
+    def new(), do: %__MODULE__{}
+    def new(opts), do: struct(new(), opts)
 
     def read_line_not_implemented(_), do: :erlang.error('Not implemented')
     def send_not_implemented(_), do: :erlang.error('Not implemented')
     def close_not_implemented(_), do: :erlang.error('Not implemented')
   end
 
-  def behaviour_info(:callbacks), 
+  def behaviour_info(:callbacks),
     do: [open: 1, read_line: 2, send: 2, close: 1]
   def behaviour_info(_), do: :undefined
 
@@ -29,5 +29,5 @@ defmodule ExAmi.Connection do
       other -> other
     end
   end
-  
+
 end
