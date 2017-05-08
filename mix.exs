@@ -26,7 +26,7 @@ defmodule ExAmi.Mixfile do
   defp package do
     [ maintainers: ["Stephen Pallen"],
       licenses: ["MIT"],
-      links: %{ "Github" => "https://github.com/smpallen99/ex_admin"},
+      links: %{ "Github" => "https://github.com/smpallen99/ex_ami"},
       files: ~w(lib README.md mix.exs LICENSE)]
   end
 end
