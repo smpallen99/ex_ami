@@ -5,15 +5,15 @@ defmodule ExAmi.MessageTest do
   describe "setters" do
     test "sets all" do
       expected = %Message.Message{attributes:
-        Enum.into([{"one", "two"}, {"three", "four"}], HashDict.new)}
+        Enum.into([{"one", "two"}, {"three", "four"}], %{})}
       assert Message.new_message
       |> Message.set_all([{"one", "two"}, {"three", "four"}]) == expected
     end
 
     test "sets all variables" do
       expected = %Message.Message{variables:
-        Enum.into([{"one", "two"}, {"three", "four"}], HashDict.new)}
-      assert Message.new_message
+        Enum.into([{"one", "two"}, {"three", "four"}], %{})}
+      assert Message.new_message()
       |> Message.set_all_variables([{"one", "two"}, {"three", "four"}]) == expected
     end
   end
@@ -36,7 +36,7 @@ defmodule ExAmi.MessageTest do
     end
 
     test "handles simple Message" do
-      message = %Message.Message{attributes: Enum.into([{"one", "two"}], HashDict.new)}
+      message = %Message.Message{attributes: Enum.into([{"one", "two"}], %{})}
       assert Message.marshall(message) == "one: two\r\n\r\n"
     end
   end
@@ -50,12 +50,12 @@ defmodule ExAmi.MessageTest do
 
   describe "unmarshall" do
     test "handles an attribute" do
-      expected = %Message.Message{attributes: Enum.into([{"var", "name"}], HashDict.new)}
+      expected = %Message.Message{attributes: Enum.into([{"var", "name"}], %{})}
       assert Message.unmarshall("var: name\r\n") == expected
     end
     test "handles 2 attributes" do
       expected = %Message.Message{attributes: Enum.into(
-        [{"var", "name"}, {"var2", "name2"}], HashDict.new)}
+        [{"var", "name"}, {"var2", "name2"}], %{})}
       assert Message.unmarshall("var: name\r\nvar2: name2\r\n") == expected
     end
     test "handles a success response" do

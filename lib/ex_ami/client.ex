@@ -5,7 +5,7 @@ defmodule ExAmi.Client do
   alias ExAmi.ServerConfig
 
   defmodule ClientState do
-    defstruct name: "", server_info: "", listeners: [], actions: HashDict.new, 
+    defstruct name: "", server_info: "", listeners: [], actions: %{},
               connection: nil, counter: 0, logging: false, worker_name: nil, 
               reader: nil
   end 
@@ -109,7 +109,7 @@ defmodule ExAmi.Client do
 
     # Find the correct action information for this response
     {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
-    {action, :none, events, callback} = Dict.fetch!(actions, action_id)
+    {action, :none, events, callback} = Map.fetch!(actions, action_id)
     # See if we should dispatch this right away or wait for the events needed
     # to complete the response.
     new_actions = cond do
@@ -120,12 +120,12 @@ defmodule ExAmi.Client do
       ExAmi.Message.is_response_complete(response) -> 
         # Complete response. Dispatch and remove the action from the queue.
         if callback, do: callback.(response, events)
-        Dict.delete(actions, action_id)
+        Map.delete(actions, action_id)
         
       true ->
         # Save the response so we can receive the associated events to
         # dispatch later.
-        Dict.put(actions, action_id, {action, response, [], callback})
+        Map.put(actions, action_id, {action, response, [], callback})
     end
     struct(state, actions: new_actions)
     |> next_state(:receiving)
@@ -139,7 +139,7 @@ defmodule ExAmi.Client do
         next_state state, :receiving
       {:ok, action_id} ->
         # this one belongs to a response
-        case Dict.get(actions, action_id) do
+        case Map.get(actions, action_id) do
           nil ->
             # ignore: not ours, or stale.
             next_state state, :receiving
@@ -147,10 +147,10 @@ defmodule ExAmi.Client do
             new_events = [event|events]
             new_actions = case ExAmi.Message.is_event_last_for_response(event) do
               false ->
-                Dict.put(actions, action_id, {action, response, new_events, callback})
+                Map.put(actions, action_id, {action, response, new_events, callback})
               true ->
                 if callback, do: callback.(response, Enum.reverse(new_events))
-                Dict.delete state.actions, action_id
+                Map.delete state.actions, action_id
             end
             struct(state, actions: new_actions)
             |> next_state(:receiving)
@@ -161,7 +161,7 @@ defmodule ExAmi.Client do
   def receiving({:action, action, callback}, state) do
     {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
     new_state = struct(state, 
-      actions: Dict.put(state.actions, action_id, {action, :none, [], callback}))
+      actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
     :ok = state.connection.send.(action)
     next_state new_state, :receiving
   end
@@ -176,7 +176,7 @@ defmodule ExAmi.Client do
     send reader, :stop
     # Give reader a chance to timeout, receive the :stop, and shutdown
     :timer.sleep(100)
-    ExAmi.Supervisor.stop_child(self)
+    ExAmi.Supervisor.stop_child(self())
     {:stop, :normal, state}
   end
 

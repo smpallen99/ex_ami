@@ -14,7 +14,7 @@ defmodule ExAmi.Client.Originate do
 
     Client.register_listener(client_pid, { 
       &(event_listener(client_pid, &1, &2, action_params)),
-      &(Dict.get(&1.attributes, "Event") in ~w(FullyBooted Hangup))
+      &(Map.get(&1.attributes, "Event") in ~w(FullyBooted Hangup))
     })
     {:ok, client_pid}
   end
@@ -27,12 +27,12 @@ defmodule ExAmi.Client.Originate do
   def event_listener(client_pid, _server_name, 
       %{attributes: attributes}, action_params) do
     
-    case Dict.get(attributes, "Event") do
+    case Map.get(attributes, "Event") do
       "FullyBooted" -> 
         send_action(client_pid, action_params)
       "Hangup" -> 
         %{channel: orig_channel} = action_params
-        event_channel = Dict.get(attributes, "Channel")
+        event_channel = Map.get(attributes, "Channel")
         if String.match? event_channel, ~r/#{orig_channel}/ do
           Client.stop client_pid
         end

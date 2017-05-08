@@ -2,17 +2,17 @@ defmodule ExAmi.Message do
   require Logger
 
   @eol  "\r\n"
-  @eom  "\r\n\r\n"
+  # @eom  "\r\n\r\n"
 
   defmodule Message do
-    defstruct attributes: HashDict.new, variables: HashDict.new
+    defstruct attributes: %{}, variables: %{}
     def new, do: %__MODULE__{}
     def new(attributes, variables), 
       do: %__MODULE__{attributes: attributes, variables: variables}
-    def new(opts), do: struct(new, opts)
+    def new(opts), do: struct(new(), opts)
   end
 
-  def new_message, do: Message.new
+  def new_message, do: Message.new()
   def new_message(attributes, variables), 
     do: Message.new(attributes, variables)
 
@@ -22,7 +22,7 @@ defmodule ExAmi.Message do
     |> Enum.map(&(Integer.to_string(&1)))
     |> Enum.reduce("", &(&2 <> &1))
 
-    set_all(new_message, [{"Action", name}, {"ActionID", action_id}])
+    set_all(new_message(), [{"Action", name}, {"ActionID", action_id}])
   end
 
   def new_action(name, attributes) do
@@ -37,25 +37,25 @@ defmodule ExAmi.Message do
   end
 
   def get(%Message{attributes: attributes}, key) do
-    case Dict.fetch(attributes, key) do
+    case Map.fetch(attributes, key) do
       {:ok, value} -> {:ok, value}
       _ -> :notfound
     end
   end
 
   def get_variable(%Message{variables: variables}, key) do
-    case Dict.fetch variables, key do
+    case Map.fetch variables, key do
       {:ok, value} -> {:ok, value}
       _ -> :notfound
     end
   end
   
   def set(key, value) do
-    new_message |> set(key, value)
+    new_message() |> set(key, value)
   end
 
   def set(%Message{} = message, key, value) do
-    Dict.put(message.attributes, key, value)   
+    Map.put(message.attributes, key, value)   
     |> new_message(message.variables)
   end
 
@@ -64,15 +64,15 @@ defmodule ExAmi.Message do
   end
 
   def set_variable(%Message{variables: variables, attributes: attributes}, key, value), 
-    do: new_message(attributes, Dict.put(variables, key, value))
+    do: new_message(attributes, Map.put(variables, key, value))
 
   def set_all_variables(%Message{} = message, variables) do
     Enum.reduce(variables, message, fn({key,value}, acc) -> set_variable(acc, key, value) end)
   end
 
   def marshall(%Message{attributes: attributes, variables: variables}) do
-    Enum.reduce(Dict.to_list(attributes), "", fn({k,v}, acc) -> marshall(acc, k, v) end) <>
-    Enum.reduce(Dict.to_list(variables), "", fn({k,v}, acc) -> marshall_variable(acc, k, v) end) <>
+    Enum.reduce(Map.to_list(attributes), "", fn({k,v}, acc) -> marshall(acc, k, v) end) <>
+    Enum.reduce(Map.to_list(variables), "", fn({k,v}, acc) -> marshall_variable(acc, k, v) end) <>
     @eol
   end
   def marshall(key, value), do: key <> ": " <> value <> @eol
@@ -85,16 +85,16 @@ defmodule ExAmi.Message do
 
   def format_log(%{attributes: attributes}) do
     cond do 
-      value = Dict.get(attributes, "Event") -> 
+      value = Map.get(attributes, "Event") -> 
         format_log("Event", value, attributes)
-      value  = Dict.get(attributes, "Response") -> 
+      value  = Map.get(attributes, "Response") -> 
         format_log("Response", value, attributes)
       true -> {:error, :notfound}
     end
   end
   def format_log(key, value, attributes) do
-    Dict.delete(attributes, key)
-    |> Dict.to_list
+    Map.delete(attributes, key)
+    |> Map.to_list
     |> Enum.reduce(key <> ": \"" <> value <> "\"", fn({k,v}, acc) -> 
       acc <> ", " <> k <> ": \"" <> v <> "\""
     end)
@@ -103,7 +103,7 @@ defmodule ExAmi.Message do
 
 
   def unmarshall(text) do
-    Enum.reduce explode_lines(text), new_message, fn(line, acc) -> 
+    Enum.reduce explode_lines(text), new_message(), fn(line, acc) -> 
       String.split(line, ":", trim: true, parts: 2)
       |> Enum.map(&(String.strip(&1)))
       |> _unmarshall(acc)     

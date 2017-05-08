@@ -3,19 +3,19 @@ defmodule ExAmi.Mixfile do
 
   def project do
     [app: :ex_ami,
-     version: "0.1.0",
+     version: "0.1.1",
      elixir: "~> 1.3",
-     package: package,
+     package: package(),
      name: "ExAmi",
      description: """
      An Elixir Asterisk AMI Client Library.
      """,
-     deps: deps]
+     deps: deps()]
   end
 
   def application do
     [ mod: {ExAmi, []},
-      applications: [:logger]]
+      applications: [:logger, :gen_fsm]]
   end
 
   defp deps do
