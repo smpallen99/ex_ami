@@ -5,7 +5,7 @@ defmodule ExAmi.Connection do
               close: &__MODULE__.close_not_implemented/1
 
     def new(), do: %__MODULE__{} 
-    def new(opts), do: struct(new, opts)
+    def new(opts), do: struct(new(), opts)
 
     def read_line_not_implemented(_), do: :erlang.error('Not implemented')
     def send_not_implemented(_), do: :erlang.error('Not implemented')
