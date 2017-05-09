@@ -3,6 +3,7 @@ defmodule ExAmi.Client do
   use GenFSM
   require Logger
   alias ExAmi.ServerConfig
+  import GenHelpers
 
   defmodule ClientState do
     defstruct name: "", server_info: "", listeners: [], actions: %{},

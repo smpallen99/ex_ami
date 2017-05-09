@@ -20,7 +20,8 @@ defmodule ExAmi.Mixfile do
 
   defp deps do
     [
-      {:gen_fsm, github: "smpallen99/gen_fsm"}
+      # {:gen_fsm, github: "smpallen99/gen_fsm"}
+      {:gen_fsm, "~> 0.1"}
     ]
   end
   defp package do
