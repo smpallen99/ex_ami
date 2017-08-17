@@ -3,7 +3,7 @@ defmodule ExAmi.Mixfile do
 
   def project do
     [app: :ex_ami,
-     version: "0.2.0",
+     version: "0.2.1",
      elixir: "~> 1.3",
      package: package(),
      name: "ExAmi",
@@ -15,13 +15,14 @@ defmodule ExAmi.Mixfile do
 
   def application do
     [ mod: {ExAmi, []},
-      applications: [:logger, :gen_fsm]]
+      applications: [:logger, :gen_fsm, :gen_fsm_helpers]]
   end
 
   defp deps do
     [
       # {:gen_fsm, github: "smpallen99/gen_fsm"}
-      {:gen_fsm, "~> 0.1"}
+      {:gen_fsm, "~> 0.1"},
+      {:gen_fsm_helpers, github: "smpallen99/gen_fsm_helpers"}
     ]
   end
   defp package do

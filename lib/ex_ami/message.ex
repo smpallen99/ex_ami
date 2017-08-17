@@ -7,13 +7,13 @@ defmodule ExAmi.Message do
   defmodule Message do
     defstruct attributes: %{}, variables: %{}
     def new, do: %__MODULE__{}
-    def new(attributes, variables), 
+    def new(attributes, variables),
       do: %__MODULE__{attributes: attributes, variables: variables}
     def new(opts), do: struct(new(), opts)
   end
 
   def new_message, do: Message.new()
-  def new_message(attributes, variables), 
+  def new_message(attributes, variables),
     do: Message.new(attributes, variables)
 
   def new_action(name) do
@@ -49,13 +49,13 @@ defmodule ExAmi.Message do
       _ -> :notfound
     end
   end
-  
+
   def set(key, value) do
     new_message() |> set(key, value)
   end
 
   def set(%Message{} = message, key, value) do
-    Map.put(message.attributes, key, value)   
+    Map.put(message.attributes, key, value)
     |> new_message(message.variables)
   end
 
@@ -63,7 +63,7 @@ defmodule ExAmi.Message do
     Enum.reduce attributes, message, fn({key, value}, acc) -> set(acc, key, value) end
   end
 
-  def set_variable(%Message{variables: variables, attributes: attributes}, key, value), 
+  def set_variable(%Message{variables: variables, attributes: attributes}, key, value),
     do: new_message(attributes, Map.put(variables, key, value))
 
   def set_all_variables(%Message{} = message, variables) do
@@ -76,18 +76,18 @@ defmodule ExAmi.Message do
     @eol
   end
   def marshall(key, value), do: key <> ": " <> value <> @eol
-  def marshall(acc, key, value), do: acc <> marshall(key, value)    
+  def marshall(acc, key, value), do: acc <> marshall(key, value)
 
   def marshall_variable(key, value), do: marshall("Variable", key <> "=" <> value)
   def marshall_variable(acc, key, value), do: acc <> marshall("Variable", key <> "=" <> value)
- 
+
   def explode_lines(text), do: String.split(text, "\r\n", trim: true)
 
   def format_log(%{attributes: attributes}) do
-    cond do 
-      value = Map.get(attributes, "Event") -> 
+    cond do
+      value = Map.get(attributes, "Event") ->
         format_log("Event", value, attributes)
-      value  = Map.get(attributes, "Response") -> 
+      value  = Map.get(attributes, "Response") ->
         format_log("Response", value, attributes)
       true -> {:error, :notfound}
     end
@@ -95,25 +95,23 @@ defmodule ExAmi.Message do
   def format_log(key, value, attributes) do
     Map.delete(attributes, key)
     |> Map.to_list
-    |> Enum.reduce(key <> ": \"" <> value <> "\"", fn({k,v}, acc) -> 
+    |> Enum.reduce(key <> ": \"" <> value <> "\"", fn({k,v}, acc) ->
       acc <> ", " <> k <> ": \"" <> v <> "\""
     end)
   end
 
-
-
   def unmarshall(text) do
-    Enum.reduce explode_lines(text), new_message(), fn(line, acc) -> 
+    Enum.reduce explode_lines(text), new_message(), fn(line, acc) ->
       String.split(line, ":", trim: true, parts: 2)
-      |> Enum.map(&(String.strip(&1)))
-      |> _unmarshall(acc)     
+      |> Enum.map(&(String.trim(&1)))
+      |> _unmarshall(acc)
     end
   end
-  defp _unmarshall([key,value], %Message{} = message), 
+  defp _unmarshall([key,value], %Message{} = message),
     do: set(message, key, value)
   defp _unmarshall([], %Message{} = message), do: message
   defp _unmarshall(["ReportBlock"], %Message{} = message), do: message
-  defp _unmarshall(other, %Message{} = message) do 
+  defp _unmarshall(other, %Message{} = message) do
     Logger.error("_unmarshall invalid input #{inspect other}")
     message
   end
@@ -152,5 +150,5 @@ defmodule ExAmi.Message do
       _ -> false
     end
   end
-  
+
 end

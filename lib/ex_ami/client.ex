@@ -3,18 +3,18 @@ defmodule ExAmi.Client do
   use GenFSM
   require Logger
   alias ExAmi.ServerConfig
-  import GenHelpers
+  import GenFSMHelpers
 
   defmodule ClientState do
     defstruct name: "", server_info: "", listeners: [], actions: %{},
-              connection: nil, counter: 0, logging: false, worker_name: nil, 
+              connection: nil, counter: 0, logging: false, worker_name: nil,
               reader: nil
-  end 
+  end
 
   ###################
   # API
 
-  def start_link(server_name, worker_name, server_info), 
+  def start_link(server_name, worker_name, server_info),
     do: _start_link([server_name, worker_name, server_info])
 
   def start_link(server_name) do
@@ -31,23 +31,23 @@ defmodule ExAmi.Client do
     ExAmi.Supervisor.start_child(server_name)
   end
 
-  def process_salutation(client, salutation), 
+  def process_salutation(client, salutation),
     do: :gen_fsm.send_event(client, {:salutation, salutation})
 
-  def process_response(client, {:response, response}), 
+  def process_response(client, {:response, response}),
     do: :gen_fsm.send_event(client, {:response, response})
-    
-  def process_event(client, {:event, event}), 
+
+  def process_event(client, {:event, event}),
     do: :gen_fsm.send_event(client, {:event, event})
 
-  def register_listener(pid, listener_descriptor) when is_pid(pid), 
+  def register_listener(pid, listener_descriptor) when is_pid(pid),
     do: _register_listener(pid, listener_descriptor)
-  def register_listener(client, listener_descriptor), 
+  def register_listener(client, listener_descriptor),
     do: _register_listener(get_worker_name(client), listener_descriptor)
-  defp _register_listener(client, listener_descriptor), 
+  defp _register_listener(client, listener_descriptor),
     do: :gen_fsm.send_all_state_event(client, {:register, listener_descriptor})
 
-  def get_worker_name(asterisk_server_name) when is_atom(asterisk_server_name) do 
+  def get_worker_name(asterisk_server_name) when is_atom(asterisk_server_name) do
     Atom.to_string(asterisk_server_name)
     |> get_worker_name
   end
@@ -59,29 +59,29 @@ defmodule ExAmi.Client do
     |> String.to_atom
   end
 
-  def send_action(pid, action, callback) when is_pid(pid), 
+  def send_action(pid, action, callback) when is_pid(pid),
     do: _send_action(pid, action, callback)
-  def send_action(client, action, callback), 
+  def send_action(client, action, callback),
     do: _send_action(get_worker_name(client), action, callback)
-  defp _send_action(client, action, callback), 
-    do: :gen_fsm.send_event(client, {:action, action, callback}) 
+  defp _send_action(client, action, callback),
+    do: :gen_fsm.send_event(client, {:action, action, callback})
 
   def stop(pid), do: :gen_fsm.send_all_state_event(pid, :stop)
-  
+
   ###################
   # Callbacks
 
   def init([server_name, worker_name, server_info]) do
     {conn_module, conn_options} = ServerConfig.get server_info, :connection
-    {:ok, conn} = :erlang.apply(conn_module, :open, [conn_options]) 
+    {:ok, conn} = :erlang.apply(conn_module, :open, [conn_options])
     reader = ExAmi.Reader.start_link(worker_name, conn)
-    {:ok, :wait_saluation, 
+    {:ok, :wait_saluation,
       %ClientState{
-        name: server_name, server_info: server_info, connection: conn, 
+        name: server_name, server_info: server_info, connection: conn,
         worker_name: worker_name, reader: reader
       }}
   end
-  
+
   ###################
   # States
 
@@ -100,11 +100,11 @@ defmodule ExAmi.Client do
       false ->
         :error_logger.error_msg('Cant login: ~p', [response])
         :erlang.error(:cantlogin)
-      true -> 
+      true ->
         next_state state, :receiving
     end
   end
-  
+
   def receiving({:response, response}, %ClientState{actions: actions} = state) do
     if state.logging, do: Logger.debug(ExAmi.Message.format_log(response))
 
@@ -114,15 +114,15 @@ defmodule ExAmi.Client do
     # See if we should dispatch this right away or wait for the events needed
     # to complete the response.
     new_actions = cond do
-      ExAmi.Message.is_response_error(response) -> 
+      ExAmi.Message.is_response_error(response) ->
         if callback, do: callback.(response, events)
         actions
 
-      ExAmi.Message.is_response_complete(response) -> 
+      ExAmi.Message.is_response_complete(response) ->
         # Complete response. Dispatch and remove the action from the queue.
         if callback, do: callback.(response, events)
         Map.delete(actions, action_id)
-        
+
       true ->
         # Save the response so we can receive the associated events to
         # dispatch later.
@@ -161,13 +161,13 @@ defmodule ExAmi.Client do
 
   def receiving({:action, action, callback}, state) do
     {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
-    new_state = struct(state, 
+    new_state = struct(state,
       actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
     :ok = state.connection.send.(action)
     next_state new_state, :receiving
   end
 
-  def handle_event({:register, listener_descriptor}, state_name, 
+  def handle_event({:register, listener_descriptor}, state_name,
       %ClientState{listeners: listeners} = client_state) do
     struct(client_state, listeners: [listener_descriptor | listeners])
     |> next_state(state_name)
@@ -181,19 +181,19 @@ defmodule ExAmi.Client do
     {:stop, :normal, state}
   end
 
-  def handle_event(_event, state_name, state), 
+  def handle_event(_event, state_name, state),
     do: next_state(state, state_name)
 
   def handle_sync_event(:next_worker, _from, state_name, %{name: name} = state) do
     next = state.counter + 1
-    new_worker_name = String.to_atom "#{get_worker_name(name)}_#{next}" 
+    new_worker_name = String.to_atom "#{get_worker_name(name)}_#{next}"
     struct(state, counter: next)
     |> reply([name, new_worker_name, state.server_info], state_name)
   end
-  def handle_sync_event(_event, _from, state_name, state), 
+  def handle_sync_event(_event, _from, state_name, state),
     do: reply(state, :ok, state_name)
-    
-  def handle_info(_info, state_name, state), 
+
+  def handle_info(_info, state_name, state),
     do: next_state(state, state_name)
 
   ###################
@@ -203,16 +203,16 @@ defmodule ExAmi.Client do
   defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
-  defp validate_salutation(invalid_id) do 
+  defp validate_salutation(invalid_id) do
     Logger.error "Invalid Salutation #{inspect invalid_id}"
     :unknown_salutation
   end
 
   defp dispatch_event(server_name, event, listeners) do
-    Enum.each(listeners,  
+    Enum.each(listeners,
       fn({function, predicate}) ->
         # spawn(fn ->
-          case :erlang.apply(predicate, [event]) do 
+          case :erlang.apply(predicate, [event]) do
             true -> function.(server_name, event)
             _ -> :ok
           end
