@@ -1,9 +1,12 @@
 defmodule ExAmi.Client do
 
-  use GenFSM
-  require Logger
+  use GenStateMachine, callback_mode: :state_functions
+
+  import GenStateMachineHelpers
+
   alias ExAmi.ServerConfig
-  import GenFSMHelpers
+
+  require Logger
 
   defmodule ClientState do
     defstruct name: "", server_info: "", listeners: [], actions: %{},
@@ -14,16 +17,18 @@ defmodule ExAmi.Client do
   ###################
   # API
 
-  def start_link(server_name, worker_name, server_info),
-    do: _start_link([server_name, worker_name, server_info])
+  def start_link(server_name, worker_name, server_info) do
+    GenStateMachine.start_link __MODULE__, [server_name, worker_name, server_info]
+  end
 
   def start_link(server_name) do
-    :gen_fsm.sync_send_all_state_event(get_worker_name(server_name), :next_worker)
+    # :gen_fsm.sync_send_all_state_event(get_worker_name(server_name), :next_worker)
+    GenStateMachine.call(get_worker_name(server_name), :next_worker)
     |> _start_link
   end
 
   defp _start_link([_, worker_name | _] = args) do
-    :gen_fsm.start_link({:local, worker_name}, __MODULE__, args, [])
+    GenStateMachine.start_link __MODULE__, args, name: worker_name
   end
 
   def start_child(server_name) do
@@ -32,20 +37,20 @@ defmodule ExAmi.Client do
   end
 
   def process_salutation(client, salutation),
-    do: :gen_fsm.send_event(client, {:salutation, salutation})
+    do: GenStateMachine.cast(client, {:salutation, salutation})
 
   def process_response(client, {:response, response}),
-    do: :gen_fsm.send_event(client, {:response, response})
+    do: GenStateMachine.cast(client, {:response, response})
 
   def process_event(client, {:event, event}),
-    do: :gen_fsm.send_event(client, {:event, event})
+    do: GenStateMachine.cast(client, {:event, event})
 
   def register_listener(pid, listener_descriptor) when is_pid(pid),
-    do: _register_listener(pid, listener_descriptor)
+    do: do_register_listener(pid, listener_descriptor)
   def register_listener(client, listener_descriptor),
-    do: _register_listener(get_worker_name(client), listener_descriptor)
-  defp _register_listener(client, listener_descriptor),
-    do: :gen_fsm.send_all_state_event(client, {:register, listener_descriptor})
+    do: do_register_listener(get_worker_name(client), listener_descriptor)
+  defp do_register_listener(client, listener_descriptor),
+    do: GenStateMachine.cast(client, {:register, listener_descriptor})
 
   def get_worker_name(asterisk_server_name) when is_atom(asterisk_server_name) do
     Atom.to_string(asterisk_server_name)
@@ -64,9 +69,9 @@ defmodule ExAmi.Client do
   def send_action(client, action, callback),
     do: _send_action(get_worker_name(client), action, callback)
   defp _send_action(client, action, callback),
-    do: :gen_fsm.send_event(client, {:action, action, callback})
+    do: GenStateMachine.cast(client, {:action, action, callback})
 
-  def stop(pid), do: :gen_fsm.send_all_state_event(pid, :stop)
+  def stop(pid), do: GenStateMachine.cast(pid, :stop)
 
   ###################
   # Callbacks
@@ -85,7 +90,7 @@ defmodule ExAmi.Client do
   ###################
   # States
 
-  def wait_saluation({:salutation, salutation}, state) do
+  def wait_saluation(:cast, {:salutation, salutation}, state) do
     :ok =  validate_salutation(salutation)
     username = ServerConfig.get state.server_info, :username
     secret = ServerConfig.get state.server_info, :secret
@@ -95,7 +100,11 @@ defmodule ExAmi.Client do
     next_state state, :wait_login_response
   end
 
-  def wait_login_response({:response, response}, state) do
+  def wait_saluation(event_type, event_content, data) do
+    handle_event(event_type, event_content, data)
+  end
+
+  def wait_login_response(:cast, {:response, response}, state) do
     case ExAmi.Message.is_response_success(response) do
       false ->
         :error_logger.error_msg('Cant login: ~p', [response])
@@ -105,7 +114,11 @@ defmodule ExAmi.Client do
     end
   end
 
-  def receiving({:response, response}, %ClientState{actions: actions} = state) do
+  def wait_login_response(event_type, event_content, data) do
+    handle_event(event_type, event_content, data)
+  end
+
+  def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
     if state.logging, do: Logger.debug(ExAmi.Message.format_log(response))
 
     # Find the correct action information for this response
@@ -132,7 +145,7 @@ defmodule ExAmi.Client do
     |> next_state(:receiving)
   end
 
-  def receiving({:event, event}, %ClientState{actions: actions} = state) do
+  def receiving(:cast, {:event, event}, %ClientState{actions: actions} = state) do
     case ExAmi.Message.get(event, "ActionID") do
       :notfound ->
         # async event
@@ -159,7 +172,7 @@ defmodule ExAmi.Client do
     end
   end
 
-  def receiving({:action, action, callback}, state) do
+  def receiving(:cast, {:action, action, callback}, state) do
     {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
     new_state = struct(state,
       actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
@@ -167,13 +180,17 @@ defmodule ExAmi.Client do
     next_state new_state, :receiving
   end
 
-  def handle_event({:register, listener_descriptor}, state_name,
-      %ClientState{listeners: listeners} = client_state) do
-    struct(client_state, listeners: [listener_descriptor | listeners])
-    |> next_state(state_name)
+  def receiving(event_type, event_content, data) do
+    handle_event(event_type, event_content, data)
   end
 
-  def handle_event(:stop, _state_name, %{reader: reader} = state) do
+  def handle_event(:cast, {:register, listener_descriptor},
+      %ClientState{listeners: listeners} = client_state) do
+    struct(client_state, listeners: [listener_descriptor | listeners])
+    |> keep_state
+  end
+
+  def handle_event(:cast, :stop, %{reader: reader} = state) do
     send reader, :stop
     # Give reader a chance to timeout, receive the :stop, and shutdown
     :timer.sleep(100)
@@ -181,20 +198,19 @@ defmodule ExAmi.Client do
     {:stop, :normal, state}
   end
 
-  def handle_event(_event, state_name, state),
-    do: next_state(state, state_name)
-
-  def handle_sync_event(:next_worker, _from, state_name, %{name: name} = state) do
+  def handle_event({:call, from}, :next_worker, %{name: name} = state) do
     next = state.counter + 1
     new_worker_name = String.to_atom "#{get_worker_name(name)}_#{next}"
-    struct(state, counter: next)
-    |> reply([name, new_worker_name, state.server_info], state_name)
+    # struct(state, counter: next)
+    # |> reply([name, new_worker_name, state.server_info], state_name)
+    state
+    |> struct(counter: next)
+    |> keep_state([{:reply, from, [name, new_worker_name, state.server_info]}])
   end
-  def handle_sync_event(_event, _from, state_name, state),
-    do: reply(state, :ok, state_name)
 
-  def handle_info(_info, state_name, state),
-    do: next_state(state, state_name)
+  def handle_event(_, _, data) do
+    keep_state data
+  end
 
   ###################
   # Private Internal

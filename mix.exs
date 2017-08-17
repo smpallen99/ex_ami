@@ -20,7 +20,8 @@ defmodule ExAmi.Mixfile do
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.0"}
+      {:gen_state_machine, "~> 2.0"},
+      {:gen_state_machine_helpers, "~> 0.1"},
     ]
   end
   defp package do
