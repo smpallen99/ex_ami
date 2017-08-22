@@ -137,13 +137,25 @@ defmodule ExAmi.Message do
     end
   end
 
+  # def is_event_last_for_response(%Message{} = message) do
+  #   case get(message, "EventList") do
+  #     :notfound ->
+  #     {:ok, response_text} ->
+  #       String.match?(response_text, ~r/omplete/)
+  #   end
+  # end
   def is_event_last_for_response(%Message{} = message) do
-    case get(message, "EventList") do
-      :notfound -> false
+    with :notfound <- get(message, "EventList"),
+         :notfound <- get(message, "Event") do
+      false
+    else
       {:ok, response_text} ->
         String.match?(response_text, ~r/omplete/)
+      _ ->
+        false
     end
   end
+
   defp is_type(%Message{} = message, type) do
     case get(message, type) do
       {:ok, _} -> true

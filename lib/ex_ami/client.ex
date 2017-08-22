@@ -18,17 +18,18 @@ defmodule ExAmi.Client do
   # API
 
   def start_link(server_name, worker_name, server_info) do
-    GenStateMachine.start_link __MODULE__, [server_name, worker_name, server_info]
+    do_start_link([server_name, worker_name, server_info])
   end
 
   def start_link(server_name) do
-    # :gen_fsm.sync_send_all_state_event(get_worker_name(server_name), :next_worker)
-    GenStateMachine.call(get_worker_name(server_name), :next_worker)
-    |> _start_link
+    server_name
+    |> get_worker_name
+    |> GenStateMachine.call(:next_worker)
+    |> do_start_link
   end
 
-  defp _start_link([_, worker_name | _] = args) do
-    GenStateMachine.start_link __MODULE__, args, name: worker_name
+  defp do_start_link([_, worker_name | _] = args) do
+    GenStateMachine.start_link(__MODULE__, args, name: worker_name)
   end
 
   def start_child(server_name) do
@@ -36,14 +37,19 @@ defmodule ExAmi.Client do
     ExAmi.Supervisor.start_child(server_name)
   end
 
-  def process_salutation(client, salutation),
-    do: GenStateMachine.cast(client, {:salutation, salutation})
+  def process_salutation(client, salutation) do
+    GenStateMachine.cast(client, {:salutation, salutation})
+  end
 
-  def process_response(client, {:response, response}),
-    do: GenStateMachine.cast(client, {:response, response})
+  def process_response(client, {:response, response}) do
+    # IO.inspect {:response, response}
+    GenStateMachine.cast(client, {:response, response})
+  end
 
-  def process_event(client, {:event, event}),
-    do: GenStateMachine.cast(client, {:event, event})
+  def process_event(client, {:event, event}) do
+    # IO.inspect {:event, event}
+    GenStateMachine.cast(client, {:event, event})
+  end
 
   def register_listener(pid, listener_descriptor) when is_pid(pid),
     do: do_register_listener(pid, listener_descriptor)
@@ -52,14 +58,11 @@ defmodule ExAmi.Client do
   defp do_register_listener(client, listener_descriptor),
     do: GenStateMachine.cast(client, {:register, listener_descriptor})
 
-  def get_worker_name(asterisk_server_name) when is_atom(asterisk_server_name) do
-    Atom.to_string(asterisk_server_name)
-    |> get_worker_name
-  end
-  def get_worker_name(asterisk_server_name) when is_binary(asterisk_server_name) do
-    (Atom.to_string(__MODULE__) <> "_" <> asterisk_server_name)
-    |> String.replace("Elixir.", "")
-    |> String.replace(".", "_")
+  def get_worker_name(server_name) do
+    __MODULE__
+    |> Module.concat(server_name)
+    |> Module.split
+    |> Enum.join("_")
     |> String.downcase
     |> String.to_atom
   end
@@ -77,13 +80,15 @@ defmodule ExAmi.Client do
   # Callbacks
 
   def init([server_name, worker_name, server_info]) do
+    logging = ServerConfig.get(server_info, :logging) || false
     {conn_module, conn_options} = ServerConfig.get server_info, :connection
     {:ok, conn} = :erlang.apply(conn_module, :open, [conn_options])
     reader = ExAmi.Reader.start_link(worker_name, conn)
+
     {:ok, :wait_saluation,
       %ClientState{
         name: server_name, server_info: server_info, connection: conn,
-        worker_name: worker_name, reader: reader
+        worker_name: worker_name, reader: reader, logging: logging
       }}
   end
 
@@ -124,6 +129,7 @@ defmodule ExAmi.Client do
     # Find the correct action information for this response
     {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
     {action, :none, events, callback} = Map.fetch!(actions, action_id)
+
     # See if we should dispatch this right away or wait for the events needed
     # to complete the response.
     new_actions = cond do
@@ -146,6 +152,7 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:event, event}, %ClientState{actions: actions} = state) do
+    # IO.inspect event, label: "----------- event"
     case ExAmi.Message.get(event, "ActionID") do
       :notfound ->
         # async event
@@ -153,16 +160,21 @@ defmodule ExAmi.Client do
         next_state state, :receiving
       {:ok, action_id} ->
         # this one belongs to a response
+        # IO.inspect {action_id, actions}, label: "^^^^^^^^^^"
         case Map.get(actions, action_id) do
           nil ->
+            # IO.insect event, label: "--------- action id not found"
             # ignore: not ours, or stale.
             next_state state, :receiving
           {action, response, events, callback} ->
+            # IO.inspect({event, action, response, events}, label: "============ event")
             new_events = [event|events]
             new_actions = case ExAmi.Message.is_event_last_for_response(event) do
               false ->
+                # IO.inspect "+++++++= not the end, saving event"
                 Map.put(actions, action_id, {action, response, new_events, callback})
               true ->
+                # IO.inspect "+++++++= the end, calling callback: #{inspect callback}"
                 if callback, do: callback.(response, Enum.reverse(new_events))
                 Map.delete state.actions, action_id
             end
@@ -201,8 +213,7 @@ defmodule ExAmi.Client do
   def handle_event({:call, from}, :next_worker, %{name: name} = state) do
     next = state.counter + 1
     new_worker_name = String.to_atom "#{get_worker_name(name)}_#{next}"
-    # struct(state, counter: next)
-    # |> reply([name, new_worker_name, state.server_info], state_name)
+
     state
     |> struct(counter: next)
     |> keep_state([{:reply, from, [name, new_worker_name, state.server_info]}])
@@ -227,12 +238,10 @@ defmodule ExAmi.Client do
   defp dispatch_event(server_name, event, listeners) do
     Enum.each(listeners,
       fn({function, predicate}) ->
-        # spawn(fn ->
-          case :erlang.apply(predicate, [event]) do
-            true -> function.(server_name, event)
-            _ -> :ok
-          end
-        # end)
+        case :erlang.apply(predicate, [event]) do
+          true -> function.(server_name, event)
+          _ -> :ok
+        end
       end)
   end
 end
