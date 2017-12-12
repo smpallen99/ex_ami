@@ -230,6 +230,7 @@ defmodule ExAmi.Client do
   defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
+  defp validate_salutation("Asterisk Call Manager/2.10.2\r\n"), do: :ok
   defp validate_salutation(invalid_id) do
     Logger.error "Invalid Salutation #{inspect invalid_id}"
     :unknown_salutation
