@@ -13,25 +13,27 @@ defmodule ExAmi.Message do
   end
 
   def new_message, do: Message.new()
-  def new_message(attributes, variables),
-    do: Message.new(attributes, variables)
+  def new_message(attributes, variables), do: Message.new(attributes, variables)
 
   def new_action(name) do
-    action_id = :os.timestamp
-    |> Tuple.to_list
-    |> Enum.map(&(Integer.to_string(&1)))
-    |> Enum.reduce("", &(&2 <> &1))
+    action_id =
+      :os.timestamp
+      |> Tuple.to_list
+      |> Enum.map(&(Integer.to_string(&1)))
+      |> Enum.reduce("", &(&2 <> &1))
 
     set_all(new_message(), [{"Action", name}, {"ActionID", action_id}])
   end
 
   def new_action(name, attributes) do
-    new_action(name)
+    name
+    |> new_action()
     |> set_all(attributes)
   end
 
   def new_action(name, attributes, variables) do
-    new_action(name)
+    name
+    |> new_action()
     |> set_all(attributes)
     |> set_all_variables(variables)
   end
@@ -51,11 +53,12 @@ defmodule ExAmi.Message do
   end
 
   def set(key, value) do
-    new_message() |> set(key, value)
+    set(new_message(), key, value)
   end
 
   def set(%Message{} = message, key, value) do
-    Map.put(message.attributes, key, value)
+    message.attributes
+    |> Map.put(key, value)
     |> new_message(message.variables)
   end
 
@@ -87,13 +90,14 @@ defmodule ExAmi.Message do
     cond do
       value = Map.get(attributes, "Event") ->
         format_log("Event", value, attributes)
-      value  = Map.get(attributes, "Response") ->
+      value = Map.get(attributes, "Response") ->
         format_log("Response", value, attributes)
       true -> {:error, :notfound}
     end
   end
   def format_log(key, value, attributes) do
-    Map.delete(attributes, key)
+    attributes
+    |> Map.delete(key)
     |> Map.to_list
     |> Enum.reduce(key <> ": \"" <> value <> "\"", fn({k,v}, acc) ->
       acc <> ", " <> k <> ": \"" <> v <> "\""
@@ -102,13 +106,13 @@ defmodule ExAmi.Message do
 
   def unmarshall(text) do
     Enum.reduce explode_lines(text), new_message(), fn(line, acc) ->
-      String.split(line, ":", trim: true, parts: 2)
+      line
+      |> String.split(":", trim: true, parts: 2)
       |> Enum.map(&(String.trim(&1)))
       |> _unmarshall(acc)
     end
   end
-  defp _unmarshall([key,value], %Message{} = message),
-    do: set(message, key, value)
+  defp _unmarshall([key,value], %Message{} = message), do: set(message, key, value)
   defp _unmarshall([], %Message{} = message), do: message
   defp _unmarshall(["ReportBlock"], %Message{} = message), do: message
   defp _unmarshall(other, %Message{} = message) do

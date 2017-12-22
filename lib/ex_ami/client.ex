@@ -237,12 +237,16 @@ defmodule ExAmi.Client do
   end
 
   defp dispatch_event(server_name, event, listeners) do
-    Enum.each(listeners,
-      fn({function, predicate}) ->
+    # IO.inspect "dispatch event!!"
+    Enum.each(listeners, fn
+      {function, predicate} when is_function(function, 2) and is_function(predicate, 1) ->
         case :erlang.apply(predicate, [event]) do
           true -> function.(server_name, event)
           _ -> :ok
         end
-      end)
+      {function, predicate} ->
+        Logger.error "Invalid function #{inspect function} or #{inspect predicate}"
+        :ok
+    end)
   end
 end
