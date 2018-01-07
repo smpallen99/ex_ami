@@ -230,20 +230,15 @@ defmodule ExAmi.Client do
   end
 
   defp dispatch_event(server_name, event, listeners) do
-    try do
-      Enum.each(listeners, fn
-        {function, predicate}  when predicate in [false, nil, :none] ->
-          apply_fun(function, [server_name, event])
-        {function, predicate} ->
-          case apply_fun predicate, [event] do
-            true -> apply_fun function, [server_name, event]
-            _ -> :ok
-          end
-      end)
-    rescue
-      e ->
-        Logger.error inspect(e) <> ", event: " <> inspect(event)
-    end
+    Enum.each(listeners, fn
+      {function, predicate}  when predicate in [false, nil, :none] ->
+        apply_fun(function, [server_name, event])
+      {function, predicate} ->
+        case apply_fun predicate, [event] do
+          true -> apply_fun function, [server_name, event]
+          _ -> :ok
+        end
+    end)
   end
 
   def apply_fun({mod, fun}, args) do
