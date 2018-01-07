@@ -2,10 +2,10 @@ defmodule ExAmi.Message do
   require Logger
 
   @eol  "\r\n"
-  # @eom  "\r\n\r\n"
 
   defmodule Message do
     defstruct attributes: %{}, variables: %{}
+
     def new, do: %__MODULE__{}
     def new(attributes, variables),
       do: %__MODULE__{attributes: attributes, variables: variables}
@@ -106,8 +106,10 @@ defmodule ExAmi.Message do
 
   def unmarshall(text) do
     Enum.reduce explode_lines(text), new_message(), fn(line, acc) ->
+      # some responses don't user a : to separate the key from the value
+      sep = if Regex.match?(~r/^[^\s]+\s*?:/, line), do: ":", else: " "
       line
-      |> String.split(":", trim: true, parts: 2)
+      |> String.split(sep, trim: true, parts: 2)
       |> Enum.map(&(String.trim(&1)))
       |> _unmarshall(acc)
     end
@@ -141,13 +143,6 @@ defmodule ExAmi.Message do
     end
   end
 
-  # def is_event_last_for_response(%Message{} = message) do
-  #   case get(message, "EventList") do
-  #     :notfound ->
-  #     {:ok, response_text} ->
-  #       String.match?(response_text, ~r/omplete/)
-  #   end
-  # end
   def is_event_last_for_response(%Message{} = message) do
     with :notfound <- get(message, "EventList"),
          :notfound <- get(message, "Event") do

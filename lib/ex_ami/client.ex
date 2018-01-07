@@ -47,7 +47,6 @@ defmodule ExAmi.Client do
   end
 
   def process_event(client, {:event, event}) do
-    # IO.inspect {:event, event}
     GenStateMachine.cast(client, {:event, event})
   end
 
@@ -152,7 +151,6 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:event, event}, %ClientState{actions: actions} = state) do
-    # IO.inspect event, label: "----------- event"
     case ExAmi.Message.get(event, "ActionID") do
       :notfound ->
         # async event
@@ -160,21 +158,16 @@ defmodule ExAmi.Client do
         next_state state, :receiving
       {:ok, action_id} ->
         # this one belongs to a response
-        # IO.inspect {action_id, actions}, label: "^^^^^^^^^^"
         case Map.get(actions, action_id) do
           nil ->
-            # IO.insect event, label: "--------- action id not found"
             # ignore: not ours, or stale.
             next_state state, :receiving
           {action, response, events, callback} ->
-            # IO.inspect({event, action, response, events}, label: "============ event")
             new_events = [event|events]
             new_actions = case ExAmi.Message.is_event_last_for_response(event) do
               false ->
-                # IO.inspect "+++++++= not the end, saving event"
                 Map.put(actions, action_id, {action, response, new_events, callback})
               true ->
-                # IO.inspect "+++++++= the end, calling callback: #{inspect callback}"
                 if callback, do: callback.(response, Enum.reverse(new_events))
                 Map.delete state.actions, action_id
             end
@@ -237,16 +230,34 @@ defmodule ExAmi.Client do
   end
 
   defp dispatch_event(server_name, event, listeners) do
-    # IO.inspect "dispatch event!!"
-    Enum.each(listeners, fn
-      {function, predicate} when is_function(function, 2) and is_function(predicate, 1) ->
-        case :erlang.apply(predicate, [event]) do
-          true -> function.(server_name, event)
-          _ -> :ok
-        end
-      {function, predicate} ->
-        Logger.error "Invalid function #{inspect function} or #{inspect predicate}"
-        :ok
-    end)
+    try do
+      Enum.each(listeners, fn
+        {function, predicate}  when predicate in [false, nil, :none] ->
+          apply_fun(function, [server_name, event])
+        {function, predicate} ->
+          case apply_fun predicate, [event] do
+            true -> apply_fun function, [server_name, event]
+            _ -> :ok
+          end
+      end)
+    rescue
+      e ->
+        Logger.error inspect(e) <> ", event: " <> inspect(event)
+    end
+  end
+
+  def apply_fun({mod, fun}, args) do
+    apply mod, fun, args
+  end
+  def apply_fun(fun, args) when is_function(fun, 1) do
+    fun.(hd(args))
+  end
+  def apply_fun(fun, args) when is_function(fun, 2) do
+    [arg1, arg2] = args
+    fun.(arg1, arg2)
+  end
+  def apply_fun(fun, args) do
+    Logger.error "Invalid function #{inspect fun} with args: #{inspect args}"
+    false
   end
 end
