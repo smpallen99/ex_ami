@@ -27,15 +27,17 @@ defmodule ExAmi.Reader do
           acc)
         ""
       line ->
-        acc <> line # |> IO.inspect(label: "line")
+        acc <> line
     end
     loop(client, connection, new_acc)
   end
 
   def dispatch_message(client, response, true, false, _),
     do: Client.process_response(client, {:response, response})
+
   def dispatch_message(client, response, false, true, _),
     do: Client.process_event(client, {:event, response})
+
   def dispatch_message(_client, _response, _, _, original),
     do: Logger.error("Unknown message: #{inspect original}")
 
@@ -45,15 +47,23 @@ defmodule ExAmi.Reader do
       {:error, :timeout} ->
         receive do
           {:close} ->
+            Client.socket_close(connection.parent)
+            Process.sleep(2000)
+            raise("socket closed")
             :erlang.exit(:shutdown)
           :stop ->
             %ConnRecord{close: close_fn} = connection
             close_fn.()
+            Process.sleep(2000)
             :erlang.exit(:normal)
         after 10 ->
           wait_line(connection)
         end
       {:error, reason} ->
+        Client.socket_close(connection.parent)
+        %ConnRecord{close: close_fn} = connection
+        close_fn.()
+        Process.sleep(2000)
         :erlang.error(reason)
     end
   end

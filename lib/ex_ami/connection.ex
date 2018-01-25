@@ -2,7 +2,8 @@ defmodule ExAmi.Connection do
   defmodule Record do
     defstruct read_line: &ExAmi.Connection.Record.read_line_not_implemented/1,
               send: &__MODULE__.send_not_implemented/1,
-              close: &__MODULE__.close_not_implemented/1
+              close: &__MODULE__.close_not_implemented/1,
+              parent: nil
 
     def new(), do: %__MODULE__{}
     def new(opts), do: struct(new(), opts)
