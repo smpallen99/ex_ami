@@ -37,7 +37,7 @@ Add ex_ami to your `mix.exs` dependencies and start the application:
   end
 
   defp deps do
-    [{:ex_ami, "~> 0.2"}]
+    [{:ex_ami, "~> 0.3"}]
   end
 ```
 
@@ -100,7 +100,7 @@ iex> MyDialer.dial(:asterisk, "SIP/100", "101")
 
 ## License
 
-ex_ami is Copyright (c) 2015-2017 E-MetroTel
+ex_ami is Copyright (c) 2015-2018 E-MetroTel
 
 The source code is released under the MIT License.
 

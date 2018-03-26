@@ -2,32 +2,36 @@ defmodule ExAmi.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :ex_ami,
-     version: "0.3.2",
-     elixir: "~> 1.5",
-     package: package(),
-     name: "ExAmi",
-     description: """
-     An Elixir Asterisk AMI Client Library.
-     """,
-     deps: deps()]
+    [
+      app: :ex_ami,
+      version: "0.3.3",
+      elixir: "~> 1.5",
+      package: package(),
+      name: "ExAmi",
+      description: """
+      An Elixir Asterisk AMI Client Library.
+      """,
+      deps: deps()
+    ]
   end
 
   def application do
-    [ mod: {ExAmi, []},
-      applications: [:logger, :gen_state_machine]]
+    [mod: {ExAmi, []}, applications: [:logger, :gen_state_machine]]
   end
 
   defp deps do
     [
       {:gen_state_machine, "~> 2.0"},
-      {:gen_state_machine_helpers, "~> 0.1"},
+      {:gen_state_machine_helpers, "~> 0.1"}
     ]
   end
+
   defp package do
-    [ maintainers: ["Stephen Pallen"],
+    [
+      maintainers: ["Stephen Pallen"],
       licenses: ["MIT"],
-      links: %{ "Github" => "https://github.com/smpallen99/ex_ami"},
-      files: ~w(lib README.md mix.exs LICENSE)]
+      links: %{"Github" => "https://github.com/smpallen99/ex_ami"},
+      files: ~w(lib README.md mix.exs LICENSE)
+    ]
   end
 end

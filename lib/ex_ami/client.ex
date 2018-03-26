@@ -1,5 +1,4 @@
 defmodule ExAmi.Client do
-
   use GenStateMachine, callback_mode: :state_functions
 
   import GenStateMachineHelpers
@@ -9,9 +8,16 @@ defmodule ExAmi.Client do
   require Logger
 
   defmodule ClientState do
-    defstruct name: "", server_info: "", listeners: [], actions: %{},
-              connection: nil, counter: 0, logging: false, worker_name: nil,
-              reader: nil, online: false
+    defstruct name: "",
+              server_info: "",
+              listeners: [],
+              actions: %{},
+              connection: nil,
+              counter: 0,
+              logging: false,
+              worker_name: nil,
+              reader: nil,
+              online: false
   end
 
   ###################
@@ -58,13 +64,14 @@ defmodule ExAmi.Client do
   end
 
   def socket_close(client) do
-    Logger.debug fn ->  "socket_close client: " <> inspect(client) end
+    Logger.debug(fn -> "socket_close client: " <> inspect(client) end)
     GenStateMachine.call(client, :socket_close)
   end
 
   def restart!(pid) when is_pid(pid) do
     GenStateMachine.cast(pid, :restart)
   end
+
   def restart!(client) do
     GenStateMachine.cast(get_worker_name(client), :restart)
   end
@@ -81,14 +88,13 @@ defmodule ExAmi.Client do
   def get_worker_name(server_name) do
     __MODULE__
     |> Module.concat(server_name)
-    |> Module.split
+    |> Module.split()
     |> Enum.join("_")
-    |> String.downcase
-    |> String.to_atom
+    |> String.downcase()
+    |> String.to_atom()
   end
 
-  def send_action(pid, action, callback) when is_pid(pid),
-    do: _send_action(pid, action, callback)
+  def send_action(pid, action, callback) when is_pid(pid), do: _send_action(pid, action, callback)
 
   def send_action(client, action, callback),
     do: _send_action(get_worker_name(client), action, callback)
@@ -110,25 +116,36 @@ defmodule ExAmi.Client do
 
     logging = ServerConfig.get(server_info, :logging) || false
 
-    send self(), {:timeout, :connecting, 0, ServerConfig.get(server_info, :connection)}
+    send(self(), {:timeout, :connecting, 0, ServerConfig.get(server_info, :connection)})
 
     {:ok, :connecting,
-      %ClientState{
-        name: server_name, server_info: server_info,
-        worker_name: worker_name, logging: logging
-      }}
+     %ClientState{
+       name: server_name,
+       server_info: server_info,
+       worker_name: worker_name,
+       logging: logging
+     }}
   end
 
   ###################
   # States
 
-  def connecting(_event_type, {:timeout, :connecting, cnt, {conn_module, conn_options}} = ev, data) do
+  def connecting(
+        _event_type,
+        {:timeout, :connecting, cnt, {conn_module, conn_options}} = ev,
+        data
+      ) do
     case :erlang.apply(conn_module, :open, [conn_options]) do
       {:ok, conn} ->
         reader = ExAmi.Reader.start_link(data.worker_name, conn)
-        next_state %ClientState{data | connection: conn, reader: reader, online: true}, :wait_saluation
+
+        next_state(
+          %ClientState{data | connection: conn, reader: reader, online: true},
+          :wait_saluation
+        )
+
       _error ->
-        Process.send_after self(), put_elem(ev, 2, cnt + 1), connecting_timer(cnt)
+        Process.send_after(self(), put_elem(ev, 2, cnt + 1), connecting_timer(cnt))
         next_state(%ClientState{data | online: false}, :connecting)
     end
   end
@@ -138,15 +155,14 @@ defmodule ExAmi.Client do
   end
 
   def wait_saluation(:cast, {:salutation, salutation}, state) do
-    :ok =  validate_salutation(salutation)
-    username = ServerConfig.get state.server_info, :username
-    secret = ServerConfig.get state.server_info, :secret
-    action = ExAmi.Message.new_action("Login", [{"Username", username},
-      {"Secret", secret}])
+    :ok = validate_salutation(salutation)
+    username = ServerConfig.get(state.server_info, :username)
+    secret = ServerConfig.get(state.server_info, :secret)
+    action = ExAmi.Message.new_action("Login", [{"Username", username}, {"Secret", secret}])
 
     :ok = state.connection.send.(action)
 
-    next_state state, :wait_login_response
+    next_state(state, :wait_login_response)
   end
 
   def wait_saluation(event_type, event_content, data) do
@@ -158,8 +174,9 @@ defmodule ExAmi.Client do
       false ->
         :error_logger.error_msg('Cant login: ~p', [response])
         :erlang.error(:cantlogin)
+
       true ->
-        next_state state, :receiving
+        next_state(state, :receiving)
     end
   end
 
@@ -167,13 +184,10 @@ defmodule ExAmi.Client do
     handle_event(event_type, event_content, data)
   end
 
-  def receiving(:cast, {:response, response},
-    %ClientState{actions: actions} = state) do
-
+  def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
     # Logger.info "response: " <> inspect(response)
     pong = response.attributes["Ping"] == "Pong"
-    if state.logging and !pong,
-      do: Logger.debug(ExAmi.Message.format_log(response))
+    if state.logging and !pong, do: Logger.debug(ExAmi.Message.format_log(response))
 
     # Find the correct action information for this response
     {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
@@ -208,25 +222,28 @@ defmodule ExAmi.Client do
       :notfound ->
         # async event
         dispatch_event(state.name, event, state.listeners)
-        next_state state, :receiving
+        next_state(state, :receiving)
 
       {:ok, action_id} ->
         # this one belongs to a response
         case Map.get(actions, action_id) do
           nil ->
             # ignore: not ours, or stale.
-            next_state state, :receiving
+            next_state(state, :receiving)
 
           {action, response, events, callback} ->
+            new_events = [event | events]
 
-            new_events = [event|events]
-            new_actions = case ExAmi.Message.is_event_last_for_response(event) do
-              false ->
-                Map.put(actions, action_id, {action, response, new_events, callback})
-              true ->
-                if callback, do: callback.(response, Enum.reverse(new_events))
-                Map.delete state.actions, action_id
-            end
+            new_actions =
+              case ExAmi.Message.is_event_last_for_response(event) do
+                false ->
+                  Map.put(actions, action_id, {action, response, new_events, callback})
+
+                true ->
+                  if callback, do: callback.(response, Enum.reverse(new_events))
+                  Map.delete(state.actions, action_id)
+              end
+
             state
             |> struct(actions: new_actions)
             |> next_state(:receiving)
@@ -237,19 +254,22 @@ defmodule ExAmi.Client do
   def receiving(:cast, {:action, action, callback}, state) do
     {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
 
-    new_state = struct(state,
-      actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
+    new_state =
+      struct(state, actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
+
     :ok = state.connection.send.(action)
-    next_state new_state, :receiving
+    next_state(new_state, :receiving)
   end
 
   def receiving(event_type, event_content, data) do
     handle_event(event_type, event_content, data)
   end
 
-  def handle_event(:cast, {:register, listener_descriptor},
-      %ClientState{listeners: listeners} = client_state) do
-
+  def handle_event(
+        :cast,
+        {:register, listener_descriptor},
+        %ClientState{listeners: listeners} = client_state
+      ) do
     # ignore duplicate entries
     if listener_descriptor in listeners do
       client_state
@@ -260,12 +280,12 @@ defmodule ExAmi.Client do
   end
 
   def handle_event(:cast, :restart, %{reader: reader} = state) do
-    send reader, :stop
+    send(reader, :stop)
     {:stop, :restart, state}
   end
 
   def handle_event(:cast, :stop, %{reader: reader} = state) do
-    send reader, :stop
+    send(reader, :stop)
     # Give reader a chance to timeout, receive the :stop, and shutdown
     Process.sleep(100)
     ExAmi.Supervisor.stop_child(self())
@@ -274,7 +294,7 @@ defmodule ExAmi.Client do
 
   def handle_event({:call, from}, :next_worker, %{name: name} = state) do
     next = state.counter + 1
-    new_worker_name = String.to_atom "#{get_worker_name(name)}_#{next}"
+    new_worker_name = String.to_atom("#{get_worker_name(name)}_#{next}")
 
     state
     |> struct(counter: next)
@@ -283,19 +303,19 @@ defmodule ExAmi.Client do
 
   def handle_event({:call, from}, :socket_close, state) do
     dispatch_event(state.name, "Shutdown", state.listeners)
-    keep_state state, [{:reply, from, :ok}]
+    keep_state(state, [{:reply, from, :ok}])
   end
 
   def handle_event({:call, from}, :online, state) do
-    keep_state state, [{:reply, from, state.online}]
+    keep_state(state, [{:reply, from, state.online}])
   end
 
   def handle_event({:call, from}, :status, state) do
-    keep_state state, [{:reply, from, state}]
+    keep_state(state, [{:reply, from, state}])
   end
 
   def handle_event(_ev, _evd, data) do
-    keep_state data
+    keep_state(data)
   end
 
   ###################
@@ -310,37 +330,52 @@ defmodule ExAmi.Client do
   defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/2.10.2\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/2.10.3\r\n"), do: :ok
+
+  defp validate_salutation(saluation = "Asterisk Call Manager/2.10." <> minor) do
+    if Regex.match?(~r/\d+\r\n/, minor) do
+      :ok
+    else
+      saluation_error(saluation)
+    end
+  end
+
   defp validate_salutation(invalid_id) do
-    Logger.error "Invalid Salutation #{inspect invalid_id}"
+    saluation_error(invalid_id)
+  end
+
+  defp saluation_error(invalid_id) do
+    Logger.error("Invalid Salutation #{inspect(invalid_id)}")
     :unknown_salutation
   end
 
   defp dispatch_event(server_name, event, listeners) do
     Enum.each(listeners, fn
-      {function, predicate}  when predicate in [false, nil, :none] ->
+      {function, predicate} when predicate in [false, nil, :none] ->
         apply_fun(function, [server_name, event])
+
       {function, predicate} ->
-        case apply_fun predicate, [event] do
-          true -> apply_fun function, [server_name, event]
+        case apply_fun(predicate, [event]) do
+          true -> apply_fun(function, [server_name, event])
           _ -> :ok
         end
     end)
   end
 
   def apply_fun({mod, fun}, args) do
-    apply mod, fun, args
+    apply(mod, fun, args)
   end
+
   def apply_fun(fun, args) when is_function(fun, 1) do
     fun.(hd(args))
   end
+
   def apply_fun(fun, args) when is_function(fun, 2) do
     [arg1, arg2] = args
     fun.(arg1, arg2)
   end
+
   def apply_fun(fun, args) do
-    Logger.error "Invalid function #{inspect fun} with args: #{inspect args}"
+    Logger.error("Invalid function #{inspect(fun)} with args: #{inspect(args)}")
     false
   end
 end
