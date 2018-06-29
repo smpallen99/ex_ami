@@ -62,6 +62,15 @@ defmodule ExAmi.Message do
     |> new_message(message.variables)
   end
 
+  def add_response_data(%Message{attributes: attributes} = message, line) do
+    response_data =
+      case attributes["ResponseData"] do
+        nil -> line
+        acc -> acc <> "\n" <> line
+      end
+    %Message{message | attributes: Map.put(attributes, "ResponseData", response_data)}
+  end
+
   def set_all(%Message{} = message, attributes) do
     Enum.reduce attributes, message, fn({key, value}, acc) -> set(acc, key, value) end
   end
@@ -105,21 +114,22 @@ defmodule ExAmi.Message do
   end
 
   def unmarshall(text) do
-    Enum.reduce explode_lines(text), new_message(), fn(line, acc) ->
-      # some responses don't user a : to separate the key from the value
-      sep = if Regex.match?(~r/^[^\s]+\s*?:/, line), do: ":", else: " "
-      line
-      |> String.split(sep, trim: true, parts: 2)
-      |> Enum.map(&(String.trim(&1)))
-      |> _unmarshall(acc)
-    end
+    do_unmarshall(new_message(), explode_lines(text))
   end
-  defp _unmarshall([key,value], %Message{} = message), do: set(message, key, value)
-  defp _unmarshall([], %Message{} = message), do: message
-  defp _unmarshall(["ReportBlock"], %Message{} = message), do: message
-  defp _unmarshall(other, %Message{} = message) do
-    Logger.error("_unmarshall invalid input #{inspect other}")
-    message
+
+  defp do_unmarshall(message, []), do: message
+
+  defp do_unmarshall(message, [line | tail]) do
+    ~r/^([^\s]+): (.*)/
+    |> Regex.run(line)
+    |> case do
+      [_, key, value] ->
+        set(message, key, value)
+
+      nil ->
+        add_response_data(message, line)
+    end
+    |> do_unmarshall(tail)
   end
 
   def is_response(%Message{} = message), do: is_type(message, "Response")

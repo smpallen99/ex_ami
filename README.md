@@ -37,7 +37,7 @@ Add ex_ami to your `mix.exs` dependencies and start the application:
   end
 
   defp deps do
-    [{:ex_ami, "~> 0.3"}]
+    [{:ex_ami, "~> 0.4"}]
   end
 ```
 

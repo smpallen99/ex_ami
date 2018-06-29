@@ -67,6 +67,25 @@ defmodule ExAmi.MessageTest do
       assert unmarshalled == expected
       assert Message.is_response(unmarshalled) == true
     end
+
+    test "handles all key/value pairs" do
+      %Message.Message{attributes: attributes} = Message.unmarshall(all_key_value_pairs())
+      assert attributes["Event"] == "SuccessfulAuth"
+      assert attributes["Privilege"] == "security,all"
+      assert attributes["SessionID"] == "0x7f0c50000910"
+    end
+
+    test "response follows ResponseData" do
+      %Message.Message{attributes: attributes} = Message.unmarshall(response_follows_message())
+      assert attributes["Response"] == "Follows"
+      assert attributes["Privilege"] == "Command"
+      assert attributes["ActionID"] == "1530285340189277"
+      [one, two, three, four] = attributes["ResponseData"] |> String.split("\n", trim: true)
+      assert String.match?(one,  ~r/Name\/username\s+Host\s+Dyn Forcerport Comedia    ACL Port     Status      Description/)
+      assert String.match?(two, ~r/200\s+\(Unspecified\)\s+D  No\s+No\s+A  0\s+UNKNOWN/)
+      assert three == "1 sip peers [Monitored: 0 online, 1 offline Unmonitored: 0 online, 0 offline]"
+      assert four == "--END COMMAND--"
+    end
   end
 
   describe "queries" do
@@ -107,4 +126,35 @@ defmodule ExAmi.MessageTest do
       assert Message.set("Message", "more here") |> Message.is_event_last_for_response == false
     end
   end
+
+  defp convert_newlines(text) do
+    text
+    |> String.split("\n", trim: true)
+    |> Enum.join("\r\n")
+  end
+
+  defp all_key_value_pairs, do: """
+    Event: SuccessfulAuth
+    Privilege: security,all
+    EventTV: 2018-06-29T10:20:05.681-0500
+    Severity: Informational
+    Service: AMI
+    EventVersion: 1
+    AccountID: infinity_one
+    SessionID: 0x7f0c50000910
+    LocalAddress: IPV4/TCP/0.0.0.0/5038
+    RemoteAddress: IPV4/TCP/10.30.50.10/42465
+    UsingPassword: 0
+    SessionTV: 2018-06-29T10:20:05.681-0500
+    """ |> convert_newlines()
+
+  defp response_follows_message, do: """
+    Response: Follows
+    Privilege: Command
+    ActionID: 1530285340189277
+    Name/username             Host                                    Dyn Forcerport Comedia    ACL Port     Status      Description
+    200                       (Unspecified)                            D  No         No          A  0        UNKNOWN
+    1 sip peers [Monitored: 0 online, 1 offline Unmonitored: 0 online, 0 offline]
+    --END COMMAND--
+    """ |> convert_newlines()
 end
