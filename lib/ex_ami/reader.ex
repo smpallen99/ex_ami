@@ -32,11 +32,11 @@ defmodule ExAmi.Reader do
     loop(client, connection, new_acc)
   end
 
+  def dispatch_message(client, response, _, true, _),
+    do: Client.process_event(client, {:event, response})
+
   def dispatch_message(client, response, true, false, _),
     do: Client.process_response(client, {:response, response})
-
-  def dispatch_message(client, response, false, true, _),
-    do: Client.process_event(client, {:event, response})
 
   def dispatch_message(_client, _response, _, _, original),
     do: Logger.error("Unknown message: #{inspect original}")
