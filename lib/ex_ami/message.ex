@@ -1,14 +1,16 @@
 defmodule ExAmi.Message do
   require Logger
 
-  @eol  "\r\n"
+  @eol "\r\n"
 
   defmodule Message do
     defstruct attributes: %{}, variables: %{}
 
     def new, do: %__MODULE__{}
+
     def new(attributes, variables),
       do: %__MODULE__{attributes: attributes, variables: variables}
+
     def new(opts), do: struct(new(), opts)
   end
 
@@ -17,9 +19,9 @@ defmodule ExAmi.Message do
 
   def new_action(name) do
     action_id =
-      :os.timestamp
-      |> Tuple.to_list
-      |> Enum.map(&(Integer.to_string(&1)))
+      :os.timestamp()
+      |> Tuple.to_list()
+      |> Enum.map(&Integer.to_string(&1))
       |> Enum.reduce("", &(&2 <> &1))
 
     set_all(new_message(), [{"Action", name}, {"ActionID", action_id}])
@@ -46,7 +48,7 @@ defmodule ExAmi.Message do
   end
 
   def get_variable(%Message{variables: variables}, key) do
-    case Map.fetch variables, key do
+    case Map.fetch(variables, key) do
       {:ok, value} -> {:ok, value}
       _ -> :notfound
     end
@@ -68,25 +70,27 @@ defmodule ExAmi.Message do
         nil -> line
         acc -> acc <> "\n" <> line
       end
+
     %Message{message | attributes: Map.put(attributes, "ResponseData", response_data)}
   end
 
   def set_all(%Message{} = message, attributes) do
-    Enum.reduce attributes, message, fn({key, value}, acc) -> set(acc, key, value) end
+    Enum.reduce(attributes, message, fn {key, value}, acc -> set(acc, key, value) end)
   end
 
   def set_variable(%Message{variables: variables, attributes: attributes}, key, value),
     do: new_message(attributes, Map.put(variables, key, value))
 
   def set_all_variables(%Message{} = message, variables) do
-    Enum.reduce(variables, message, fn({key,value}, acc) -> set_variable(acc, key, value) end)
+    Enum.reduce(variables, message, fn {key, value}, acc -> set_variable(acc, key, value) end)
   end
 
   def marshall(%Message{attributes: attributes, variables: variables}) do
-    Enum.reduce(Map.to_list(attributes), "", fn({k,v}, acc) -> marshall(acc, k, v) end) <>
-    Enum.reduce(Map.to_list(variables), "", fn({k,v}, acc) -> marshall_variable(acc, k, v) end) <>
-    @eol
+    Enum.reduce(Map.to_list(attributes), "", fn {k, v}, acc -> marshall(acc, k, v) end) <>
+      Enum.reduce(Map.to_list(variables), "", fn {k, v}, acc -> marshall_variable(acc, k, v) end) <>
+      @eol
   end
+
   def marshall(key, value), do: key <> ": " <> value <> @eol
   def marshall(acc, key, value), do: acc <> marshall(key, value)
 
@@ -99,16 +103,20 @@ defmodule ExAmi.Message do
     cond do
       value = Map.get(attributes, "Event") ->
         format_log("Event", value, attributes)
+
       value = Map.get(attributes, "Response") ->
         format_log("Response", value, attributes)
-      true -> {:error, :notfound}
+
+      true ->
+        {:error, :notfound}
     end
   end
+
   def format_log(key, value, attributes) do
     attributes
     |> Map.delete(key)
-    |> Map.to_list
-    |> Enum.reduce(key <> ": \"" <> value <> "\"", fn({k,v}, acc) ->
+    |> Map.to_list()
+    |> Enum.reduce(key <> ": \"" <> value <> "\"", fn {k, v}, acc ->
       acc <> ", " <> k <> ": \"" <> v <> "\""
     end)
   end
@@ -147,7 +155,9 @@ defmodule ExAmi.Message do
 
   def is_response_complete(%Message{} = message) do
     case get(message, "Message") do
-      :notfound -> true
+      :notfound ->
+        true
+
       {:ok, response_text} ->
         !String.match?(response_text, ~r/ollow/)
     end
@@ -160,6 +170,7 @@ defmodule ExAmi.Message do
     else
       {:ok, response_text} ->
         String.match?(response_text, ~r/omplete/)
+
       _ ->
         false
     end
@@ -171,5 +182,4 @@ defmodule ExAmi.Message do
       _ -> false
     end
   end
-
 end

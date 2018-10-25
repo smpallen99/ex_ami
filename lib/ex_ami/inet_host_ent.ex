@@ -2,9 +2,9 @@ defmodule Inet.HostEnt do
   require Record
   record = Record.extract(:hostent, from_lib: "kernel/include/inet.hrl")
 
-  keys   = :lists.map(&elem(&1, 0), record)
-  vals   = :lists.map(&{&1, [], nil}, keys)
-  pairs  = :lists.zip(keys, vals)
+  keys = :lists.map(&elem(&1, 0), record)
+  vals = :lists.map(&{&1, [], nil}, keys)
+  pairs = :lists.zip(keys, vals)
 
   defstruct keys
   @type t :: %__MODULE__{}

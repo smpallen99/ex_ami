@@ -15,20 +15,22 @@ defmodule ExAmi.Connection do
 
   def behaviour_info(:callbacks),
     do: [open: 1, read_line: 2, send: 2, close: 1]
+
   def behaviour_info(_), do: :undefined
 
   def resolve_host(host) do
     host_list = String.to_charlist(host)
+
     case :inet.gethostbyaddr(host_list) do
       {:ok, resolved} -> {:ok, Inet.HostEnt.from_record(resolved)}
       _ -> resolve_host_name(host_list)
     end
   end
+
   def resolve_host_name(host) do
     case :inet.gethostbyname(host) do
       {:ok, resolved} -> {:ok, Inet.HostEnt.from_record(resolved)}
       other -> other
     end
   end
-
 end
