@@ -1,5 +1,5 @@
 defmodule ExAmi.Message do
-  require Logger
+  use ExAmi.Logger
 
   @eol "\r\n"
 

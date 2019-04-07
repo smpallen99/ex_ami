@@ -1,6 +1,5 @@
 defmodule ExAmi do
   use Application
-  require Logger
 
   def start(_type, _args) do
     {:ok, pid} = ExAmi.Supervisor.start_link()

@@ -1,7 +1,7 @@
 defmodule ExAmi.TcpConnection do
+  use ExAmi.Logger
   alias ExAmi.Connection
   alias ExAmi.Message
-  require Logger
 
   def open(options) do
     host = Keyword.get(options, :host)

@@ -1,11 +1,10 @@
 defmodule ExAmi.Client do
   use GenStateMachine, callback_mode: :state_functions
+  use ExAmi.Logger
 
   import GenStateMachineHelpers
 
   alias ExAmi.ServerConfig
-
-  require Logger
 
   defmodule ClientState do
     defstruct name: "",

@@ -1,5 +1,5 @@
 defmodule ExAmi.ServerConfig do
-  require Logger
+  use ExAmi.Logger
 
   def get(server_info, key) do
     search(server_info, key)
