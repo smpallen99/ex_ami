@@ -190,25 +190,30 @@ defmodule ExAmi.Client do
 
     # Find the correct action information for this response
     {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
-    {action, :none, events, callback} = Map.fetch!(actions, action_id)
 
-    # See if we should dispatch this right away or wait for the events needed
-    # to complete the response.
     new_actions =
-      cond do
-        ExAmi.Message.is_response_error(response) ->
-          if callback, do: callback.(response, events)
+      case Map.fetch(actions, action_id) do
+        {action, :none, events, callback} ->
+          # See if we should dispatch this right away or wait for the events needed
+          # to complete the response.
+          cond do
+            ExAmi.Message.is_response_error(response) ->
+              if callback, do: callback.(response, events)
+              actions
+
+            ExAmi.Message.is_response_complete(response) ->
+              # Complete response. Dispatch and remove the action from the queue.
+              if callback, do: callback.(response, events)
+              Map.delete(actions, action_id)
+
+            true ->
+              # Save the response so we can receive the associated events to
+              # dispatch later.
+              Map.put(actions, action_id, {action, response, [], callback})
+          end
+
+        _ ->
           actions
-
-        ExAmi.Message.is_response_complete(response) ->
-          # Complete response. Dispatch and remove the action from the queue.
-          if callback, do: callback.(response, events)
-          Map.delete(actions, action_id)
-
-        true ->
-          # Save the response so we can receive the associated events to
-          # dispatch later.
-          Map.put(actions, action_id, {action, response, [], callback})
       end
 
     state

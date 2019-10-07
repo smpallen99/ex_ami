@@ -1,5 +1,12 @@
 # ExAmi Changelog
 
+## 0.4.3 (2010-10-07)
+
+### Enhancements
+
+### Bug Fixes
+
+* Turn response action not found into a warn log instead of an exception
 ## 0.4.0 (2018-06-29)
 
 ### Enhancements
