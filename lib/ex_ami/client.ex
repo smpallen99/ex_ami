@@ -213,6 +213,7 @@ defmodule ExAmi.Client do
           end
 
         _ ->
+          Logger.warn("Could not find action for response: #{inspect(response)}")
           actions
       end
 
