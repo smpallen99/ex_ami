@@ -22,9 +22,7 @@ defmodule ExAmi.Logger do
       message = unquote(message)
       metadata = unquote(metadata)
 
-      if Application.get_env(:ex_ami, :logging) do
-        Logger.error(message, metadata)
-      end
+      Logger.error(message, metadata)
     end
   end
 
@@ -33,9 +31,7 @@ defmodule ExAmi.Logger do
       message = unquote(message)
       metadata = unquote(metadata)
 
-      if Application.get_env(:ex_ami, :logging) do
-        Logger.warn(message, metadata)
-      end
+      Logger.warn(message, metadata)
     end
   end
 

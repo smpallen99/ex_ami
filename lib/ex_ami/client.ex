@@ -193,7 +193,7 @@ defmodule ExAmi.Client do
 
     new_actions =
       case Map.fetch(actions, action_id) do
-        {action, :none, events, callback} ->
+        {:ok, {action, :none, events, callback}} ->
           # See if we should dispatch this right away or wait for the events needed
           # to complete the response.
           cond do
@@ -212,8 +212,11 @@ defmodule ExAmi.Client do
               Map.put(actions, action_id, {action, response, [], callback})
           end
 
-        _ ->
-          Logger.warn("Could not find action for response: #{inspect(response)}")
+        other ->
+          Logger.warn(
+            "Could not find action for response: #{inspect(response)}. Received #{inspect(other)}"
+          )
+
           actions
       end
 
