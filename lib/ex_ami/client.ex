@@ -198,12 +198,12 @@ defmodule ExAmi.Client do
           # to complete the response.
           cond do
             ExAmi.Message.is_response_error(response) ->
-              if callback, do: callback.(response, events)
+              run_callback(callback, response, events)
               actions
 
             ExAmi.Message.is_response_complete(response) ->
               # Complete response. Dispatch and remove the action from the queue.
-              if callback, do: callback.(response, events)
+              run_callback(callback, response, events)
               Map.delete(actions, action_id)
 
             true ->
@@ -244,7 +244,7 @@ defmodule ExAmi.Client do
                   Map.put(actions, action_id, {action, response, new_events, callback})
 
                 true ->
-                  if callback, do: callback.(response, Enum.reverse(new_events))
+                  run_callback(callback, response, Enum.reverse(new_events))
                   Map.delete(state.actions, action_id)
               end
 
@@ -381,5 +381,17 @@ defmodule ExAmi.Client do
   def apply_fun(fun, args) do
     Logger.error("Invalid function #{inspect(fun)} with args: #{inspect(args)}")
     false
+  end
+
+  defp run_callback(nil, _arg1, _arg2) do
+    :ok
+  end
+
+  defp run_callback({module, fun}, arg1, arg2) do
+    apply(module, fun, [arg1, arg2])
+  end
+
+  defp run_callback(callback, arg1, arg2) when is_function(callback, 2) do
+    callback.(arg1, arg2)
   end
 end
