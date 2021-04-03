@@ -21,7 +21,7 @@ defmodule ExAmi.Message do
     action_id =
       :os.timestamp()
       |> Tuple.to_list()
-      |> Enum.map(&Integer.to_string(&1))
+      |> Enum.map(&Integer.to_string/1)
       |> Enum.reduce("", &(&2 <> &1))
 
     set_all(new_message(), [{"Action", name}, {"ActionID", action_id}])

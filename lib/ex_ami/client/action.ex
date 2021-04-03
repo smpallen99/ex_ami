@@ -1,7 +1,11 @@
 defmodule ExAmi.Client.Action do
+  alias ExAmi.{Client, Message}
+
   def hangup(client, channel, callback \\ nil) do
-    action = ExAmi.Message.new_action("Hangup", [{"Channel", channel}])
-    pid = Process.whereis(client)
-    ExAmi.Client.send_action(pid, action, callback)
+    Client.send_action(
+      Process.whereis(client),
+      Message.new_action("Hangup", [{"Channel", channel}]),
+      callback
+    )
   end
 end

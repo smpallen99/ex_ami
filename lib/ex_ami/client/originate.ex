@@ -1,6 +1,7 @@
 defmodule ExAmi.Client.Originate do
   require Logger
-  alias ExAmi.Client
+
+  alias ExAmi.{Message, Client}
 
   def dial(sever_name, channel, other, variables \\ [], callback \\ nil, opts \\ [])
 
@@ -16,7 +17,7 @@ defmodule ExAmi.Client.Originate do
       other: opts
     }
 
-    {:ok, client_pid} = ExAmi.Client.start_child(server_name)
+    {:ok, client_pid} = Client.start_child(server_name)
 
     Client.register_listener(client_pid, {
       &event_listener(client_pid, &1, &2, action_params),
@@ -57,7 +58,7 @@ defmodule ExAmi.Client.Originate do
         other: opts
       }) do
     action =
-      ExAmi.Message.new_action(
+      Message.new_action(
         "Originate",
         [
           {"Channel", channel},
@@ -68,6 +69,6 @@ defmodule ExAmi.Client.Originate do
         variables
       )
 
-    ExAmi.Client.send_action(client_pid, action, callback)
+    Client.send_action(client_pid, action, callback)
   end
 end

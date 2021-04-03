@@ -4,7 +4,7 @@ defmodule ExAmi.Client do
 
   import GenStateMachineHelpers
 
-  alias ExAmi.ServerConfig
+  alias ExAmi.{Message, ServerConfig}
 
   defmodule ClientState do
     defstruct name: "",
@@ -16,7 +16,29 @@ defmodule ExAmi.Client do
               logging: false,
               worker_name: nil,
               reader: nil,
-              online: false
+              online: false,
+              children: %{},
+              counters: []
+  end
+
+  def child_spec([server] = args) do
+    %{
+      id: get_next_worker(server),
+      start: {__MODULE__, :start_link, args},
+      restart: :transient,
+      shutdown: Application.get_env(:ex_ami, :worker_shutdown, 50),
+      type: :worker
+    }
+  end
+
+  def child_spec([_, worker | _] = args) do
+    %{
+      id: worker,
+      start: {__MODULE__, :start_link, args},
+      restart: :permanent,
+      shutdown: Application.get_env(:ex_ami, :worker_shutdown, 50),
+      type: :worker
+    }
   end
 
   ###################
@@ -27,10 +49,20 @@ defmodule ExAmi.Client do
   end
 
   def start_link(server_name) do
-    server_name
-    |> get_worker_name
-    |> GenStateMachine.call(:next_worker)
-    |> do_start_link
+    [_, worker_name | _] =
+      args =
+      server_name
+      |> get_worker_name()
+      |> GenStateMachine.call(:next_worker)
+
+    case do_start_link(args) do
+      {:ok, pid} = ok ->
+        monitor_worker(server_name, worker_name, pid)
+        ok
+
+      other ->
+        other
+    end
   end
 
   defp do_start_link([_, worker_name | _] = args) do
@@ -39,7 +71,7 @@ defmodule ExAmi.Client do
 
   def start_child(server_name) do
     # have the supervisor start the new process
-    ExAmi.Supervisor.start_child(server_name)
+    ExAmi.ClientSupervisor.start_child(server_name)
   end
 
   def online?(pid) when is_pid(pid) do
@@ -93,12 +125,13 @@ defmodule ExAmi.Client do
     |> String.to_atom()
   end
 
-  def send_action(pid, action, callback) when is_pid(pid), do: _send_action(pid, action, callback)
+  def send_action(pid, action, callback) when is_pid(pid),
+    do: cast_send_action(pid, action, callback)
 
   def send_action(client, action, callback),
-    do: _send_action(get_worker_name(client), action, callback)
+    do: cast_send_action(get_worker_name(client), action, callback)
 
-  defp _send_action(client, action, callback),
+  defp cast_send_action(client, action, callback),
     do: GenStateMachine.cast(client, {:action, action, callback})
 
   def status(pid) when is_pid(pid), do: GenStateMachine.call(pid, :status)
@@ -111,8 +144,6 @@ defmodule ExAmi.Client do
   # Callbacks
 
   def init([server_name, worker_name, server_info]) do
-    # :erlang.process_flag(:trap_exit, true)
-
     logging = ServerConfig.get(server_info, :logging) || false
 
     send(self(), {:timeout, :connecting, 0, ServerConfig.get(server_info, :connection)})
@@ -134,7 +165,7 @@ defmodule ExAmi.Client do
         {:timeout, :connecting, cnt, {conn_module, conn_options}} = ev,
         data
       ) do
-    case :erlang.apply(conn_module, :open, [conn_options]) do
+    case apply(conn_module, :open, [conn_options]) do
       {:ok, conn} ->
         reader = ExAmi.Reader.start_link(data.worker_name, conn)
 
@@ -157,7 +188,7 @@ defmodule ExAmi.Client do
     :ok = validate_salutation(salutation)
     username = ServerConfig.get(state.server_info, :username)
     secret = ServerConfig.get(state.server_info, :secret)
-    action = ExAmi.Message.new_action("Login", [{"Username", username}, {"Secret", secret}])
+    action = Message.new_action("Login", [{"Username", username}, {"Secret", secret}])
 
     :ok = state.connection.send.(action)
 
@@ -169,7 +200,7 @@ defmodule ExAmi.Client do
   end
 
   def wait_login_response(:cast, {:response, response}, state) do
-    case ExAmi.Message.is_response_success(response) do
+    case Message.is_response_success(response) do
       false ->
         :error_logger.error_msg('Cant login: ~p', [response])
         :erlang.error(:cantlogin)
@@ -184,12 +215,11 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
-    # Logger.info "response: " <> inspect(response)
     pong = response.attributes["Ping"] == "Pong"
-    if state.logging and !pong, do: Logger.debug(ExAmi.Message.format_log(response))
+    if state.logging and !pong, do: Logger.debug(Message.format_log(response))
 
     # Find the correct action information for this response
-    {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
+    {:ok, action_id} = Message.get(response, "ActionID")
 
     new_actions =
       case Map.fetch(actions, action_id) do
@@ -197,11 +227,11 @@ defmodule ExAmi.Client do
           # See if we should dispatch this right away or wait for the events needed
           # to complete the response.
           cond do
-            ExAmi.Message.is_response_error(response) ->
+            Message.is_response_error(response) ->
               run_callback(callback, response, events)
               actions
 
-            ExAmi.Message.is_response_complete(response) ->
+            Message.is_response_complete(response) ->
               # Complete response. Dispatch and remove the action from the queue.
               run_callback(callback, response, events)
               Map.delete(actions, action_id)
@@ -226,7 +256,7 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:event, event}, %ClientState{actions: actions} = state) do
-    case ExAmi.Message.get(event, "ActionID") do
+    case Message.get(event, "ActionID") do
       :notfound ->
         # async event
         dispatch_event(state.name, event, state.listeners)
@@ -243,7 +273,7 @@ defmodule ExAmi.Client do
             new_events = [event | events]
 
             new_actions =
-              case ExAmi.Message.is_event_last_for_response(event) do
+              case Message.is_event_last_for_response(event) do
                 false ->
                   Map.put(actions, action_id, {action, response, new_events, callback})
 
@@ -260,7 +290,7 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:action, action, callback}, state) do
-    {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
+    {:ok, action_id} = Message.get(action, "ActionID")
 
     new_state =
       struct(state, actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
@@ -280,11 +310,10 @@ defmodule ExAmi.Client do
       ) do
     # ignore duplicate entries
     if listener_descriptor in listeners do
-      client_state
+      keep_state(client_state)
     else
-      struct(client_state, listeners: [listener_descriptor | listeners])
+      keep_state(%{client_state | listeners: [listener_descriptor | listeners]})
     end
-    |> keep_state
   end
 
   def handle_event(:cast, :restart, %{reader: reader} = state) do
@@ -296,17 +325,28 @@ defmodule ExAmi.Client do
     send(reader, :stop)
     # Give reader a chance to timeout, receive the :stop, and shutdown
     Process.sleep(100)
-    ExAmi.Supervisor.stop_child(self())
+    ExAmi.ClientSupervisor.stop_child(self())
     {:stop, :normal, state}
   end
 
-  def handle_event({:call, from}, :next_worker, %{name: name} = state) do
-    next = state.counter + 1
-    new_worker_name = String.to_atom("#{get_worker_name(name)}_#{next}")
+  def handle_event({:call, from}, :next_worker, %{name: name, counter: counter} = state) do
+    {state, next} =
+      case state.counters do
+        [next | rest] -> {%{state | counters: rest}, next}
+        [] -> {%{state | counter: counter + 1}, counter + 1}
+      end
 
-    state
-    |> struct(counter: next)
-    |> keep_state([{:reply, from, [name, new_worker_name, state.server_info]}])
+    keep_state(state, [{:reply, from, [name, worker_name(name, next), state.server_info]}])
+  end
+
+  def handle_event({:call, from}, :get_next_worker, %{name: name} = state) do
+    next =
+      case state.counters do
+        [next | _] -> next
+        [] -> state.counter + 1
+      end
+
+    keep_state(state, [{:reply, from, worker_name(name, next)}])
   end
 
   def handle_event({:call, from}, :socket_close, state) do
@@ -320,6 +360,34 @@ defmodule ExAmi.Client do
 
   def handle_event({:call, from}, :status, state) do
     keep_state(state, [{:reply, from, state}])
+  end
+
+  def handle_event(:cast, {:monitor_worker, worker_name, pid}, state) do
+    Process.monitor(pid)
+
+    state =
+      if counter = get_counter(state.worker_name, worker_name) do
+        %{state | children: Map.put(state.children, pid, counter)}
+      else
+        state
+      end
+
+    keep_state(state)
+  end
+
+  def handle_event(:info, {:DOWN, _, :process, pid, :shutdown}, state) do
+    # our child is exiting. Get its index, add the index into the pool for reuse and remove
+    # its process from the children map.
+
+    if counter = state.children[pid] do
+      keep_state(%{
+        state
+        | counters: [counter | state.counters],
+          children: Map.delete(state.children, pid)
+      })
+    else
+      keep_state(state)
+    end
   end
 
   def handle_event(_ev, _evd, data) do
@@ -374,7 +442,7 @@ defmodule ExAmi.Client do
   end
 
   def apply_fun(fun, args) when is_function(fun, 1) do
-    fun.(hd(args))
+    args |> hd() |> fun.()
   end
 
   def apply_fun(fun, args) when is_function(fun, 2) do
@@ -397,5 +465,31 @@ defmodule ExAmi.Client do
 
   defp run_callback(callback, arg1, arg2) when is_function(callback, 2) do
     callback.(arg1, arg2)
+  end
+
+  defp worker_name(name, counter), do: String.to_atom("#{get_worker_name(name)}_#{counter}")
+
+  defp get_counter(name, worker) do
+    name = to_string(name)
+    worker = to_string(worker)
+
+    with true <- String.starts_with?(worker, name <> "_"),
+         {num, ""} <- Integer.parse(String.trim_leading(worker, name <> "_")) do
+      num
+    else
+      _ -> nil
+    end
+  end
+
+  defp monitor_worker(server_name, worker_name, pid) do
+    server_name
+    |> get_worker_name()
+    |> GenStateMachine.cast({:monitor_worker, worker_name, pid})
+  end
+
+  defp get_next_worker(server_name) do
+    server_name
+    |> get_worker_name()
+    |> GenStateMachine.call(:get_next_worker)
   end
 end

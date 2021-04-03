@@ -2,8 +2,7 @@ defmodule ExAmi.Reader do
   use ExAmi.Logger
 
   alias ExAmi.Connection.Record, as: ConnRecord
-  alias ExAmi.Client
-  alias ExAmi.Message
+  alias ExAmi.{Client, Message}
 
   def start_link(client, %ConnRecord{} = connection) do
     spawn_link(fn ->
