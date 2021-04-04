@@ -16,7 +16,11 @@ defmodule ExAmi.Mixfile do
   end
 
   def application do
-    [mod: {ExAmi, []}, applications: [:logger, :gen_state_machine]]
+    [
+      mod: {ExAmi, []},
+      applications: [:logger, :gen_state_machine],
+      extra_applications: [:gen_state_machine_helpers, :ssl]
+    ]
   end
 
   defp deps do
