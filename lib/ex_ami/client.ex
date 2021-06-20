@@ -22,24 +22,57 @@ defmodule ExAmi.Client do
   ###################
   # API
 
+  def child_spec([_, worker_name | _] = args) do
+    IO.inspect args, label: "ExAmi.child_spec 1"
+    %{
+      id: worker_name,
+      start: {__MODULE__, :start_link, args},
+      restart: :permanent,
+      type: :worker
+    }
+  end
+
+  def child_spec([server_name] = args) do
+    IO.inspect args, label: "ExAmi.child_spec 2"
+    args = [_, worker_name | _]=
+      server_name
+      |> get_worker_name()
+      |> GenStateMachine.call(:next_worker)
+
+    %{
+      id: worker_name,
+      start: {__MODULE__, :start_link, args},
+      restart: :temporary,
+      type: :worker
+    }
+  end
+
   def start_link(server_name, worker_name, server_info) do
     do_start_link([server_name, worker_name, server_info])
   end
 
+  def start_link([server_name, worker_name, server_info]) do
+    do_start_link([server_name, worker_name, server_info])
+  end
+
   def start_link(server_name) do
+    IO.inspect server_name, label: "ExAmi.Client start_link/1"
     server_name
     |> get_worker_name
     |> GenStateMachine.call(:next_worker)
-    |> do_start_link
+    |> do_start_link()
   end
 
   defp do_start_link([_, worker_name | _] = args) do
+    IO.inspect(args, label: "ExAmi.Client.do_start_link")
     GenStateMachine.start_link(__MODULE__, args, name: worker_name)
+    |> IO.inspect(label: "do_start_link return")
   end
 
   def start_child(server_name) do
     # have the supervisor start the new process
     ExAmi.Supervisor.start_child(server_name)
+    |> IO.inspect(label: "start_child/1 return")
   end
 
   def online?(pid) when is_pid(pid) do

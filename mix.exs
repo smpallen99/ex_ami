@@ -4,8 +4,8 @@ defmodule ExAmi.Mixfile do
   def project do
     [
       app: :ex_ami,
-      version: "0.4.3",
-      elixir: "~> 1.5",
+      version: "1.0.0-dev",
+      elixir: "~> 1.12",
       package: package(),
       name: "ExAmi",
       description: """
@@ -16,12 +16,12 @@ defmodule ExAmi.Mixfile do
   end
 
   def application do
-    [mod: {ExAmi, []}, applications: [:logger, :gen_state_machine]]
+    [mod: {ExAmi, []}, extra_applications: [:logger, :gen_state_machine, :ssl]]
   end
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.0"},
+      {:gen_state_machine, "~> 2.1"},
       {:gen_state_machine_helpers, "~> 0.1"}
     ]
   end
