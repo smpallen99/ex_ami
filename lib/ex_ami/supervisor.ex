@@ -15,7 +15,11 @@ defmodule ExAmi.Supervisor do
   end
 
   def start_child(server_name, worker_name, server_info),
-    do: DynamicSupervisor.start_child(:exami_supervisor, {ExAmi.Client, [server_name, worker_name, server_info]})
+    do:
+      DynamicSupervisor.start_child(
+        :exami_supervisor,
+        {ExAmi.Client, [server_name, worker_name, server_info]}
+      )
 
   def start_child(server_name),
     do: DynamicSupervisor.start_child(:exami_supervisor, {ExAmi.Client, [server_name]})

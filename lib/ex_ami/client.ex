@@ -23,7 +23,8 @@ defmodule ExAmi.Client do
   # API
 
   def child_spec([_, worker_name | _] = args) do
-    IO.inspect args, label: "ExAmi.child_spec 1"
+    IO.inspect(args, label: "ExAmi.child_spec 1")
+
     %{
       id: worker_name,
       start: {__MODULE__, :start_link, args},
@@ -33,8 +34,10 @@ defmodule ExAmi.Client do
   end
 
   def child_spec([server_name] = args) do
-    IO.inspect args, label: "ExAmi.child_spec 2"
-    args = [_, worker_name | _]=
+    IO.inspect(args, label: "ExAmi.child_spec 2")
+
+    args =
+      [_, worker_name | _] =
       server_name
       |> get_worker_name()
       |> GenStateMachine.call(:next_worker)
@@ -56,7 +59,8 @@ defmodule ExAmi.Client do
   end
 
   def start_link(server_name) do
-    IO.inspect server_name, label: "ExAmi.Client start_link/1"
+    IO.inspect(server_name, label: "ExAmi.Client start_link/1")
+
     server_name
     |> get_worker_name
     |> GenStateMachine.call(:next_worker)
@@ -65,6 +69,7 @@ defmodule ExAmi.Client do
 
   defp do_start_link([_, worker_name | _] = args) do
     IO.inspect(args, label: "ExAmi.Client.do_start_link")
+
     GenStateMachine.start_link(__MODULE__, args, name: worker_name)
     |> IO.inspect(label: "do_start_link return")
   end
@@ -367,8 +372,8 @@ defmodule ExAmi.Client do
   defp connecting_timer(cnt) when cnt < 20, do: 30_000
   defp connecting_timer(_), do: 60_000
 
-  defp validate_salutation("Asterisk Call Manager/1.1\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
+  defp validate_salutation("Asterisk Call Manager/1.1\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
   defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
 
@@ -379,6 +384,8 @@ defmodule ExAmi.Client do
       saluation_error(saluation)
     end
   end
+
+  defp validate_salutation("Asterisk Call Manager/7.0.1\r\n"), do: :ok
 
   defp validate_salutation(invalid_id) do
     saluation_error(invalid_id)
