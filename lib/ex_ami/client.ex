@@ -23,8 +23,6 @@ defmodule ExAmi.Client do
   # API
 
   def child_spec([_, worker_name | _] = args) do
-    IO.inspect(args, label: "ExAmi.child_spec 1")
-
     %{
       id: worker_name,
       start: {__MODULE__, :start_link, args},
@@ -33,9 +31,7 @@ defmodule ExAmi.Client do
     }
   end
 
-  def child_spec([server_name] = args) do
-    IO.inspect(args, label: "ExAmi.child_spec 2")
-
+  def child_spec([server_name] = _args) do
     args =
       [_, worker_name | _] =
       server_name
@@ -59,8 +55,6 @@ defmodule ExAmi.Client do
   end
 
   def start_link(server_name) do
-    IO.inspect(server_name, label: "ExAmi.Client start_link/1")
-
     server_name
     |> get_worker_name
     |> GenStateMachine.call(:next_worker)
@@ -68,16 +62,12 @@ defmodule ExAmi.Client do
   end
 
   defp do_start_link([_, worker_name | _] = args) do
-    IO.inspect(args, label: "ExAmi.Client.do_start_link")
-
     GenStateMachine.start_link(__MODULE__, args, name: worker_name)
-    |> IO.inspect(label: "do_start_link return")
   end
 
   def start_child(server_name) do
     # have the supervisor start the new process
     ExAmi.Supervisor.start_child(server_name)
-    |> IO.inspect(label: "start_child/1 return")
   end
 
   def online?(pid) when is_pid(pid) do
@@ -372,20 +362,17 @@ defmodule ExAmi.Client do
   defp connecting_timer(cnt) when cnt < 20, do: 30_000
   defp connecting_timer(_), do: 60_000
 
-  defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.1\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
-
-  defp validate_salutation(saluation = "Asterisk Call Manager/2.10." <> minor) do
-    if Regex.match?(~r/\d+\r\n/, minor) do
-      :ok
-    else
-      saluation_error(saluation)
-    end
+  defp validate_salutation("Asterisk Call Manager/7.0." <> patch = saluation) do
+    check_version(patch, saluation)
   end
 
-  defp validate_salutation("Asterisk Call Manager/7.0.1\r\n"), do: :ok
+  defp validate_salutation("Asterisk Call Manager/2.10." <> patch = saluation) do
+    check_version(patch, saluation)
+  end
+
+  defp validate_salutation("Asterisk Call Manager/1." <> minor = saluation) do
+    check_version(minor, saluation)
+  end
 
   defp validate_salutation(invalid_id) do
     saluation_error(invalid_id)
@@ -394,6 +381,14 @@ defmodule ExAmi.Client do
   defp saluation_error(invalid_id) do
     Logger.error("Invalid Salutation #{inspect(invalid_id)}")
     :unknown_salutation
+  end
+
+  defp check_version(number, saluation) do
+    if Regex.match?(~r/\d+\r\n/, number) do
+      :ok
+    else
+      saluation_error(saluation)
+    end
   end
 
   defp dispatch_event(server_name, event, listeners) do
