@@ -168,7 +168,7 @@ defmodule ExAmi.Client do
 
         next_state(
           %ClientState{data | connection: conn, reader: reader, online: true},
-          :wait_saluation
+          :wait_salutation
         )
 
       _error ->
@@ -181,7 +181,7 @@ defmodule ExAmi.Client do
     handle_event(event_type, event_content, data)
   end
 
-  def wait_saluation(:cast, {:salutation, salutation}, state) do
+  def wait_salutation(:cast, {:salutation, salutation}, state) do
     :ok = validate_salutation(salutation)
     username = ServerConfig.get(state.server_info, :username)
     secret = ServerConfig.get(state.server_info, :secret)
@@ -192,7 +192,7 @@ defmodule ExAmi.Client do
     next_state(state, :wait_login_response)
   end
 
-  def wait_saluation(event_type, event_content, data) do
+  def wait_salutation(event_type, event_content, data) do
     handle_event(event_type, event_content, data)
   end
 
@@ -362,32 +362,32 @@ defmodule ExAmi.Client do
   defp connecting_timer(cnt) when cnt < 20, do: 30_000
   defp connecting_timer(_), do: 60_000
 
-  defp validate_salutation("Asterisk Call Manager/7.0." <> patch = saluation) do
-    check_version(patch, saluation)
+  defp validate_salutation("Asterisk Call Manager/7.0." <> patch = salutation) do
+    check_version(patch, salutation)
   end
 
-  defp validate_salutation("Asterisk Call Manager/2.10." <> patch = saluation) do
-    check_version(patch, saluation)
+  defp validate_salutation("Asterisk Call Manager/2.10." <> patch = salutation) do
+    check_version(patch, salutation)
   end
 
-  defp validate_salutation("Asterisk Call Manager/1." <> minor = saluation) do
-    check_version(minor, saluation)
+  defp validate_salutation("Asterisk Call Manager/1." <> minor = salutation) do
+    check_version(minor, salutation)
   end
 
   defp validate_salutation(invalid_id) do
-    saluation_error(invalid_id)
+    salutation_error(invalid_id)
   end
 
-  defp saluation_error(invalid_id) do
+  defp salutation_error(invalid_id) do
     Logger.error("Invalid Salutation #{inspect(invalid_id)}")
     :unknown_salutation
   end
 
-  defp check_version(number, saluation) do
+  defp check_version(number, salutation) do
     if Regex.match?(~r/\d+\r\n/, number) do
       :ok
     else
-      saluation_error(saluation)
+      salutation_error(salutation)
     end
   end
 
