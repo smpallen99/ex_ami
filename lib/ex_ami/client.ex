@@ -212,8 +212,8 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
-    # Logger.info "response: " <> inspect(response)
     pong = response.attributes["Ping"] == "Pong"
+
     if state.logging and !pong, do: Logger.debug(ExAmi.Message.format_log(response))
 
     # Find the correct action information for this response
