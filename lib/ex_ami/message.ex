@@ -60,7 +60,7 @@ defmodule ExAmi.Message do
 
   def set(%Message{} = message, key, value) do
     message.attributes
-    |> Map.put(key, value)
+    |> Map.update(key, value, &(&1 <> "\n" <> value))
     |> new_message(message.variables)
   end
 
@@ -144,8 +144,12 @@ defmodule ExAmi.Message do
   def is_event(%Message{} = message), do: is_type(message, "Event")
 
   def is_response_success(%Message{} = message) do
-    {:ok, value} = get(message, "Response")
-    value == "Success"
+    with :notfound <- get(message, "EventList"),
+         {:ok, value} <- get(message, "Response") do
+      value == "Success"
+    else
+      _ -> false
+    end
   end
 
   def is_response_error(%Message{} = message) do
@@ -154,6 +158,10 @@ defmodule ExAmi.Message do
   end
 
   def is_response_complete(%Message{} = message) do
+    is_response_success(message) or do_is_response_complete(message)
+  end
+
+  defp do_is_response_complete(%Message{} = message) do
     case get(message, "Message") do
       :notfound ->
         true

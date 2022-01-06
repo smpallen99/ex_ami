@@ -1,5 +1,11 @@
 # ExAmi Changelog
 
+# 1.0.1 (2022-01-05)
+
+### Enhancements
+
+* Support Asterisk CallManager 7
+
 ## 0.4.3 (2010-10-07)
 
 ### Enhancements

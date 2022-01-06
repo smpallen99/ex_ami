@@ -92,6 +92,15 @@ To originate a 3rd party call from extensions 100 to 101:
 iex> MyDialer.dial(:asterisk, "SIP/100", "101")
 
 ```
+
+## Asterisk CallManager 7 Changes
+
+In previous versions of Asterisk, running a "Command" returns the command data
+in the attributes `"responseData"`.
+
+In CallManager 7, the command response is returned in attributes `"Output"` field.
+This requires that your application must be changed.
+
 ## Trouble Shooting
 
 * Ensure you start the ex_ami application in your mix.exs file as described above
@@ -100,7 +109,7 @@ iex> MyDialer.dial(:asterisk, "SIP/100", "101")
 
 ## License
 
-ex_ami is Copyright (c) 2015-2018 E-MetroTel
+ex_ami is Copyright (c) 2015-2022 E-MetroTel
 
 The source code is released under the MIT License.
 
