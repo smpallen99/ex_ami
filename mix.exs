@@ -4,7 +4,7 @@ defmodule ExAmi.Mixfile do
   def project do
     [
       app: :ex_ami,
-      version: "1.0.1",
+      version: "1.1.0",
       elixir: "~> 1.12",
       package: package(),
       name: "ExAmi",

@@ -18,12 +18,7 @@ defmodule ExAmi.Message do
   def new_message(attributes, variables), do: Message.new(attributes, variables)
 
   def new_action(name) do
-    action_id =
-      :os.timestamp()
-      |> Tuple.to_list()
-      |> Enum.map(&Integer.to_string(&1))
-      |> Enum.reduce("", &(&2 <> &1))
-
+    action_id = to_string(:erlang.monotonic_time()) <> to_string(:rand.uniform(1000))
     set_all(new_message(), [{"Action", name}, {"ActionID", action_id}])
   end
 
@@ -45,6 +40,10 @@ defmodule ExAmi.Message do
       {:ok, value} -> {:ok, value}
       _ -> :notfound
     end
+  end
+
+  def put(%Message{attributes: attributes} = message, key, value) do
+    %{message | attributes: Map.put(attributes, key, value)}
   end
 
   def get_variable(%Message{variables: variables}, key) do

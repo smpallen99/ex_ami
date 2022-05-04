@@ -29,6 +29,34 @@ defmodule ExAmi.ClientTest do
            end) =~ "Could not find action for response: "
   end
 
+  test "handle duplicate action", %{state: state} do
+    pid = self()
+    callback = &send(pid, {:callback, &1, &2})
+    action = Message.new_action("QueueStatus")
+    action_id = action.attributes["ActionID"]
+
+    {:next_state, :receiving, state} = Client.receiving(:cast, {:action, action, callback}, state)
+
+    assert state.actions == %{
+             action_id => {action, :none, [], callback}
+           }
+
+    assert_receive {:connection, ^action}
+
+    action_id_alt = action_id <> "_alt"
+
+    {:next_state, :receiving, state} = Client.receiving(:cast, {:action, action, callback}, state)
+
+    action2 = Message.put(action, "ActionID", action_id_alt)
+
+    assert state.actions == %{
+             action_id => {action, :none, [], callback},
+             action_id_alt => {action2, :none, [], callback}
+           }
+
+    assert_receive {:connection, ^action2}
+  end
+
   test "handle QueueStatusResponse", %{state: state} do
     pid = self()
     callback = &send(pid, {:callback, &1, &2})
