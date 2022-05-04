@@ -1,4 +1,14 @@
 defmodule TimeServer do
+  @moduledoc """
+  Test module to allow time testing of alternatives for generating an Action ID.
+  The start function takes a number of iterations and the algorithm number, and
+  spawns a task for each (hard-coded) number of cpus to generate that many IDs.
+  Each task sends the results to the TimeServer.
+  The compute function determines the number of duplicate IDs generated and displays
+  the total count and the unique count.
+  The display function shows the duplicated values and the CPU process they appear in.
+  """
+
   use GenServer
 
   defstruct agents: %{},
@@ -48,12 +58,12 @@ defmodule TimeServer do
 
   @impl true
   def init(_) do
-    {:ok, __MODULE__.__struct__()}
+    {:ok, %__MODULE__{}}
   end
 
   @impl true
   def terminate(reason, _state) do
-    IO.puts("TimeServer terminating with reason: #{inspect(reason)}")
+    IO.puts("#{__MODULE__} terminating with reason: #{inspect(reason)}")
     :ok
   end
 
@@ -68,23 +78,17 @@ defmodule TimeServer do
     start_time = String.to_integer(type(1))
     start_tick = type(0)
 
+    send_results = fn core ->
+      spawn(fn ->
+        results = for _ <- 1..number, do: type(type)
+        send(self, {:result, core, results})
+      end)
+    end
+
     state =
-      for i <- 1..@num_cores,
-          reduce: state,
-          do:
-            (state ->
-               %{
-                 state
-                 | agents:
-                     Map.put(
-                       state.agents,
-                       i,
-                       spawn(fn ->
-                         results = for _ <- 1..number, do: type(type)
-                         send(self, {:result, i, results})
-                       end)
-                     )
-               })
+      for i <- 1..@num_cores, reduce: state do
+        state -> %{state | agents: Map.put(state.agents, i, send_results.(i))}
+      end
 
     end_time = String.to_integer(type(1))
     end_tick = type(0)
@@ -101,10 +105,9 @@ defmodule TimeServer do
   end
 
   def handle_cast(:display, state) do
-    Enum.reduce(state.doubles, [], fn value, acc ->
+    Enum.each(state.doubles, fn value ->
       for i <- 1..@num_cores do
         if value in state.results[i], do: IO.inspect({value, i})
-        acc
       end
     end)
 
