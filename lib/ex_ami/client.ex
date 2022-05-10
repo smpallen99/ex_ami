@@ -4,7 +4,7 @@ defmodule ExAmi.Client do
 
   import GenStateMachineHelpers
 
-  alias ExAmi.ServerConfig
+  alias ExAmi.{Message, ServerConfig}
 
   defmodule ClientState do
     defstruct name: "",
@@ -157,7 +157,7 @@ defmodule ExAmi.Client do
     :ok = validate_salutation(salutation)
     username = ServerConfig.get(state.server_info, :username)
     secret = ServerConfig.get(state.server_info, :secret)
-    action = ExAmi.Message.new_action("Login", [{"Username", username}, {"Secret", secret}])
+    action = Message.new_action("Login", [{"Username", username}, {"Secret", secret}])
 
     :ok = state.connection.send.(action)
 
@@ -169,7 +169,7 @@ defmodule ExAmi.Client do
   end
 
   def wait_login_response(:cast, {:response, response}, state) do
-    case ExAmi.Message.is_response_success(response) do
+    case Message.is_response_success(response) do
       false ->
         :error_logger.error_msg('Cant login: ~p', [response])
         :erlang.error(:cantlogin)
@@ -186,10 +186,11 @@ defmodule ExAmi.Client do
   def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
     # Logger.info "response: " <> inspect(response)
     pong = response.attributes["Ping"] == "Pong"
-    if state.logging and !pong, do: Logger.debug(ExAmi.Message.format_log(response))
+
+    if state.logging and !pong, do: Logger.debug(Message.format_log(response))
 
     # Find the correct action information for this response
-    {:ok, action_id} = ExAmi.Message.get(response, "ActionID")
+    {:ok, action_id} = Message.get(response, "ActionID")
 
     new_actions =
       case Map.fetch(actions, action_id) do
@@ -197,11 +198,11 @@ defmodule ExAmi.Client do
           # See if we should dispatch this right away or wait for the events needed
           # to complete the response.
           cond do
-            ExAmi.Message.is_response_error(response) ->
+            Message.is_response_error(response) ->
               run_callback(callback, response, events)
               actions
 
-            ExAmi.Message.is_response_complete(response) ->
+            Message.is_response_complete(response) ->
               # Complete response. Dispatch and remove the action from the queue.
               run_callback(callback, response, events)
               Map.delete(actions, action_id)
@@ -226,7 +227,7 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:event, event}, %ClientState{actions: actions} = state) do
-    case ExAmi.Message.get(event, "ActionID") do
+    case Message.get(event, "ActionID") do
       :notfound ->
         # async event
         dispatch_event(state.name, event, state.listeners)
@@ -243,7 +244,7 @@ defmodule ExAmi.Client do
             new_events = [event | events]
 
             new_actions =
-              case ExAmi.Message.is_event_last_for_response(event) do
+              case Message.is_event_last_for_response(event) do
                 false ->
                   Map.put(actions, action_id, {action, response, new_events, callback})
 
@@ -260,13 +261,8 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:action, action, callback}, state) do
-    {:ok, action_id} = ExAmi.Message.get(action, "ActionID")
-
-    new_state =
-      struct(state, actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
-
-    :ok = state.connection.send.(action)
-    next_state(new_state, :receiving)
+    {:ok, action_id} = Message.get(action, "ActionID")
+    do_receive_action(action, action_id, Map.get(state.actions, action_id), callback, state)
   end
 
   def receiving(event_type, event_content, data) do
@@ -354,6 +350,24 @@ defmodule ExAmi.Client do
   defp saluation_error(invalid_id) do
     Logger.error("Invalid Salutation #{inspect(invalid_id)}")
     :unknown_salutation
+  end
+
+  defp do_receive_action(action, action_id, nil, callback, state) do
+    state =
+      struct(state, actions: Map.put(state.actions, action_id, {action, :none, [], callback}))
+
+    :ok = state.connection.send.(action)
+    next_state(state, :receiving)
+  end
+
+  defp do_receive_action(action, action_id, old_action, callback, state) do
+    Logger.warn(
+      "duplicate action ID #{action_id}\nold action: #{inspect(old_action)}\nnew_action: #{inspect(action)}"
+    )
+
+    action_id = action_id <> "_alt"
+    action = Message.put(action, "ActionID", action_id)
+    do_receive_action(action, action_id, Map.get(state.actions, action_id), callback, state)
   end
 
   defp dispatch_event(server_name, event, listeners) do
