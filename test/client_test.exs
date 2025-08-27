@@ -45,16 +45,19 @@ defmodule ExAmi.ClientTest do
 
     action_id_alt = action_id <> "_alt"
 
-    {:next_state, :receiving, state} = Client.receiving(:cast, {:action, action, callback}, state)
+    capture_log(fn ->
+      {:next_state, :receiving, state} =
+        Client.receiving(:cast, {:action, action, callback}, state)
 
-    action2 = Message.put(action, "ActionID", action_id_alt)
+      action2 = Message.put(action, "ActionID", action_id_alt)
 
-    assert state.actions == %{
-             action_id => {action, :none, [], callback},
-             action_id_alt => {action2, :none, [], callback}
-           }
+      assert state.actions == %{
+               action_id => {action, :none, [], callback},
+               action_id_alt => {action2, :none, [], callback}
+             }
 
-    assert_receive {:connection, ^action2}
+      assert_receive {:connection, ^action2}
+    end) =~ "duplicate action ID"
   end
 
   test "handle QueueStatusResponse", %{state: state} do

@@ -26,12 +26,12 @@ defmodule ExAmi.Logger do
     end
   end
 
-  defmacro warn(message, metadata \\ []) do
+  defmacro warning(message, metadata \\ []) do
     quote do
       message = unquote(message)
       metadata = unquote(metadata)
 
-      Logger.warn(message, metadata)
+      Logger.warning(message, metadata)
     end
   end
 
