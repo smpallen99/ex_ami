@@ -93,7 +93,11 @@ iex> MyDialer.dial(:asterisk, "SIP/100", "101")
 
 ```
 
-## Asterisk CallManager 7 Changes
+## Asterisk Call Manager 9 Changes
+
+Accept connections from version 9.0.x.
+
+## Asterisk Call Manager 7 Changes
 
 In previous versions of Asterisk, running a "Command" returns the command data
 in the attributes `"responseData"`.
