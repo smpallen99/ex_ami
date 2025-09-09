@@ -241,7 +241,7 @@ defmodule ExAmi.Client do
           end
 
         other ->
-          Logger.warn(
+          Logger.warning(
             "Could not find action for response: #{inspect(response)}. Received #{inspect(other)}"
           )
 
@@ -357,6 +357,10 @@ defmodule ExAmi.Client do
   defp connecting_timer(cnt) when cnt < 20, do: 30_000
   defp connecting_timer(_), do: 60_000
 
+  defp validate_salutation("Asterisk Call Manager/9.0." <> patch = salutation) do
+    check_version(patch, salutation)
+  end
+
   defp validate_salutation("Asterisk Call Manager/7.0." <> patch = salutation) do
     check_version(patch, salutation)
   end
@@ -395,7 +399,7 @@ defmodule ExAmi.Client do
   end
 
   defp do_receive_action(action, action_id, old_action, callback, state) do
-    Logger.warn(
+    Logger.warning(
       "duplicate action ID #{action_id}\nold action: #{inspect(old_action)}\nnew_action: #{inspect(action)}"
     )
 

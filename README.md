@@ -104,12 +104,12 @@ This requires that your application must be changed.
 ## Trouble Shooting
 
 * Ensure you start the ex_ami application in your mix.exs file as described above
-* Enusre you setup the ex_ami configuration with the correct credentials
+* Ensure you setup the ex_ami configuration with the correct credentials
 * Enusre you setup the credentials for the AMI connection in Asterisk
 
 ## License
 
-ex_ami is Copyright (c) 2015-2022 E-MetroTel
+ex_ami is Copyright (c) 2015-2025 E-MetroTel
 
 The source code is released under the MIT License.
 

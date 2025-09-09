@@ -4,7 +4,7 @@ defmodule ExAmi.Mixfile do
   def project do
     [
       app: :ex_ami,
-      version: "1.1.0",
+      version: "2.0.0",
       elixir: "~> 1.12",
       package: package(),
       name: "ExAmi",
@@ -37,7 +37,7 @@ defmodule ExAmi.Mixfile do
 
   defp package do
     [
-      maintainers: ["Stephen Pallen"],
+      maintainers: ["Ian Sinclair", "Stephen Pallen"],
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/smpallen99/ex_ami"},
       files: ~w(lib README.md mix.exs LICENSE)
