@@ -92,15 +92,28 @@ To originate a 3rd party call from extensions 100 to 101:
 iex> MyDialer.dial(:asterisk, "SIP/100", "101")
 
 ```
+
+## Asterisk Call Manager 9 Changes
+
+Accept connections from version 9.0.x.
+
+## Asterisk Call Manager 7 Changes
+
+In previous versions of Asterisk, running a "Command" returns the command data
+in the attributes `"responseData"`.
+
+In CallManager 7, the command response is returned in attributes `"Output"` field.
+This requires that your application must be changed.
+
 ## Trouble Shooting
 
 * Ensure you start the ex_ami application in your mix.exs file as described above
-* Enusre you setup the ex_ami configuration with the correct credentials
+* Ensure you setup the ex_ami configuration with the correct credentials
 * Enusre you setup the credentials for the AMI connection in Asterisk
 
 ## License
 
-ex_ami is Copyright (c) 2015-2018 E-MetroTel
+ex_ami is Copyright (c) 2015-2025 E-MetroTel
 
 The source code is released under the MIT License.
 

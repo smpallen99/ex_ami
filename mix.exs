@@ -4,31 +4,40 @@ defmodule ExAmi.Mixfile do
   def project do
     [
       app: :ex_ami,
-      version: "0.5.0",
-      elixir: "~> 1.5",
+      version: "1.2.0",
+      elixir: "~> 1.12",
       package: package(),
       name: "ExAmi",
       description: """
       An Elixir Asterisk AMI Client Library.
       """,
-      deps: deps()
+      deps: deps(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
   def application do
-    [mod: {ExAmi, []}, applications: [:logger, :gen_state_machine]]
+    [mod: {ExAmi, []}, extra_applications: [:logger, :gen_state_machine, :ssl]]
   end
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.0"},
-      {:gen_state_machine_helpers, "~> 0.1"}
+      {:gen_state_machine, "~> 2.1"},
+      {:gen_state_machine_helpers, "~> 0.1"},
+      {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.10", only: :test}
     ]
   end
 
   defp package do
     [
-      maintainers: ["Stephen Pallen"],
+      maintainers: ["Ian Sinclair", "Stephen Pallen"],
       licenses: ["MIT"],
       links: %{"Github" => "https://github.com/smpallen99/ex_ami"},
       files: ~w(lib README.md mix.exs LICENSE)

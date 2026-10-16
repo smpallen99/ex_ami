@@ -22,7 +22,35 @@ defmodule ExAmi.Client do
   ###################
   # API
 
+  def child_spec([_, worker_name | _] = args) do
+    %{
+      id: worker_name,
+      start: {__MODULE__, :start_link, args},
+      restart: :permanent,
+      type: :worker
+    }
+  end
+
+  def child_spec([server_name] = _args) do
+    args =
+      [_, worker_name | _] =
+      server_name
+      |> get_worker_name()
+      |> GenStateMachine.call(:next_worker)
+
+    %{
+      id: worker_name,
+      start: {__MODULE__, :start_link, args},
+      restart: :temporary,
+      type: :worker
+    }
+  end
+
   def start_link(server_name, worker_name, server_info) do
+    do_start_link([server_name, worker_name, server_info])
+  end
+
+  def start_link([server_name, worker_name, server_info]) do
     do_start_link([server_name, worker_name, server_info])
   end
 
@@ -30,7 +58,7 @@ defmodule ExAmi.Client do
     server_name
     |> get_worker_name
     |> GenStateMachine.call(:next_worker)
-    |> do_start_link
+    |> do_start_link()
   end
 
   defp do_start_link([_, worker_name | _] = args) do
@@ -140,7 +168,7 @@ defmodule ExAmi.Client do
 
         next_state(
           %ClientState{data | connection: conn, reader: reader, online: true},
-          :wait_saluation
+          :wait_salutation
         )
 
       _error ->
@@ -153,7 +181,7 @@ defmodule ExAmi.Client do
     handle_event(event_type, event_content, data)
   end
 
-  def wait_saluation(:cast, {:salutation, salutation}, state) do
+  def wait_salutation(:cast, {:salutation, salutation}, state) do
     :ok = validate_salutation(salutation)
     username = ServerConfig.get(state.server_info, :username)
     secret = ServerConfig.get(state.server_info, :secret)
@@ -164,7 +192,7 @@ defmodule ExAmi.Client do
     next_state(state, :wait_login_response)
   end
 
-  def wait_saluation(event_type, event_content, data) do
+  def wait_salutation(event_type, event_content, data) do
     handle_event(event_type, event_content, data)
   end
 
@@ -184,7 +212,6 @@ defmodule ExAmi.Client do
   end
 
   def receiving(:cast, {:response, response}, %ClientState{actions: actions} = state) do
-    # Logger.info "response: " <> inspect(response)
     pong = response.attributes["Ping"] == "Pong"
 
     if state.logging and !pong, do: Logger.debug(Message.format_log(response))
@@ -214,7 +241,7 @@ defmodule ExAmi.Client do
           end
 
         other ->
-          Logger.warn(
+          Logger.warning(
             "Could not find action for response: #{inspect(response)}. Received #{inspect(other)}"
           )
 
@@ -330,26 +357,37 @@ defmodule ExAmi.Client do
   defp connecting_timer(cnt) when cnt < 20, do: 30_000
   defp connecting_timer(_), do: 60_000
 
-  defp validate_salutation("Asterisk Call Manager/1.1\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.0\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.2\r\n"), do: :ok
-  defp validate_salutation("Asterisk Call Manager/1.3\r\n"), do: :ok
+  defp validate_salutation("Asterisk Call Manager/9.0." <> patch = salutation) do
+    check_version(patch, salutation)
+  end
 
-  defp validate_salutation(saluation = "Asterisk Call Manager/2.10." <> minor) do
-    if Regex.match?(~r/\d+\r\n/, minor) do
-      :ok
-    else
-      saluation_error(saluation)
-    end
+  defp validate_salutation("Asterisk Call Manager/7.0." <> patch = salutation) do
+    check_version(patch, salutation)
+  end
+
+  defp validate_salutation("Asterisk Call Manager/2.10." <> patch = salutation) do
+    check_version(patch, salutation)
+  end
+
+  defp validate_salutation("Asterisk Call Manager/1." <> minor = salutation) do
+    check_version(minor, salutation)
   end
 
   defp validate_salutation(invalid_id) do
-    saluation_error(invalid_id)
+    salutation_error(invalid_id)
   end
 
-  defp saluation_error(invalid_id) do
+  defp salutation_error(invalid_id) do
     Logger.error("Invalid Salutation #{inspect(invalid_id)}")
     :unknown_salutation
+  end
+
+  defp check_version(number, salutation) do
+    if Regex.match?(~r/\d+\r\n/, number) do
+      :ok
+    else
+      salutation_error(salutation)
+    end
   end
 
   defp do_receive_action(action, action_id, nil, callback, state) do
@@ -361,7 +399,7 @@ defmodule ExAmi.Client do
   end
 
   defp do_receive_action(action, action_id, old_action, callback, state) do
-    Logger.warn(
+    Logger.warning(
       "duplicate action ID #{action_id}\nold action: #{inspect(old_action)}\nnew_action: #{inspect(action)}"
     )
 

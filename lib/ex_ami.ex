@@ -2,7 +2,7 @@ defmodule ExAmi do
   use Application
 
   def start(_type, _args) do
-    {:ok, pid} = ExAmi.Supervisor.start_link()
+    {:ok, pid} = ExAmi.Supervisor.start_link([])
 
     for {name, info} <- Application.get_env(:ex_ami, :servers, []) |> deep_parse() do
       worker_name = ExAmi.Client.get_worker_name(name)

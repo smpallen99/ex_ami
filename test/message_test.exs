@@ -82,6 +82,56 @@ defmodule ExAmi.MessageTest do
       assert Message.is_response(unmarshalled) == true
     end
 
+    test "multiline command response CallManager 2" do
+      header = """
+      Response: Follows
+      Privilege: Command
+      """
+
+      body = """
+      Line 1
+      Key One:   key_one
+      Key Two:   other
+      --END COMMAND-
+      """
+
+      message = String.replace(header <> body <> "\n", "\n", "\r\n")
+
+      %{attributes: attributes, variables: %{}} = Message.unmarshall(message)
+
+      assert attributes == %{
+               "Privilege" => "Command",
+               "Response" => "Follows",
+               "ResponseData" => String.trim_trailing(body, "\n")
+             }
+    end
+
+    test "multiline command response CallManager 7" do
+      message =
+        """
+        Response: Success
+        Message: Command output follows
+        Output: Line 1
+        Output: Key One:    key_one
+        Output: Key Two:    other
+
+        """
+        |> String.replace("\n", "\r\n")
+
+      %{attributes: attributes, variables: %{}} = Message.unmarshall(message)
+
+      output =
+        "Line 1\n" <>
+          "Key One:    key_one\n" <>
+          "Key Two:    other"
+
+      assert attributes == %{
+               "Message" => "Command output follows",
+               "Response" => "Success",
+               "Output" => output
+             }
+    end
+
     test "handles all key/value pairs" do
       %Message.Message{attributes: attributes} = Message.unmarshall(all_key_value_pairs())
       assert attributes["Event"] == "SuccessfulAuth"
