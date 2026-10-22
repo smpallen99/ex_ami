@@ -56,7 +56,7 @@ defmodule ExAmi.Client do
 
   def start_link(server_name) do
     server_name
-    |> get_worker_name
+    |> get_worker_name()
     |> GenStateMachine.call(:next_worker)
     |> do_start_link()
   end
@@ -160,7 +160,7 @@ defmodule ExAmi.Client do
   def connecting(
         _event_type,
         {:timeout, :connecting, cnt, {conn_module, conn_options}} = ev,
-        data
+        %ClientState{} = data
       ) do
     case :erlang.apply(conn_module, :open, [conn_options]) do
       {:ok, conn} ->
@@ -199,7 +199,7 @@ defmodule ExAmi.Client do
   def wait_login_response(:cast, {:response, response}, state) do
     case Message.is_response_success(response) do
       false ->
-        :error_logger.error_msg('Cant login: ~p', [response])
+        :error_logger.error_msg(~c"Cant login: ~p", [response])
         :erlang.error(:cantlogin)
 
       true ->
@@ -307,7 +307,7 @@ defmodule ExAmi.Client do
     else
       struct(client_state, listeners: [listener_descriptor | listeners])
     end
-    |> keep_state
+    |> keep_state()
   end
 
   def handle_event(:cast, :restart, %{reader: reader} = state) do
