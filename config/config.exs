@@ -14,7 +14,7 @@ config :logger,
   level: :debug
 
 #
-config :logger, :console,
+config :logger, :default_formatter,
   format: "$date $time [$level] $metadata$message\n",
   metadata: [:user_id]
 
@@ -26,4 +26,4 @@ config :logger, :console,
 #
 #     import_config "#{Mix.env}.exs"
 
-import_config "#{Mix.env()}.exs"
+import_config "#{config_env()}.exs"

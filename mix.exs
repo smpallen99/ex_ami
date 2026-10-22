@@ -4,20 +4,26 @@ defmodule ExAmi.Mixfile do
   def project do
     [
       app: :ex_ami,
-      version: "1.2.0",
-      elixir: "~> 1.12",
+      version: "1.3.0",
+      elixir: "~> 1.20",
       package: package(),
       name: "ExAmi",
       description: """
       An Elixir Asterisk AMI Client Library.
       """,
       deps: deps(),
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
+      test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "coveralls.json": :test
       ]
     ]
   end
@@ -28,10 +34,10 @@ defmodule ExAmi.Mixfile do
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.1"},
+      {:gen_state_machine, "~> 3.0"},
       {:gen_state_machine_helpers, "~> 0.1"},
-      {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.10", only: :test}
+      {:mix_test_watch, "~> 1.4", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.18.5", only: :test}
     ]
   end
 

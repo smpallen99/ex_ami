@@ -4,6 +4,26 @@ An Elixir port of the Erlang Asterisk Manager Interface [erlami](https://github.
 
 This version creates a new AMI connection for each call originated, allowing concurrent dialing.
 
+## Development
+
+Use the checked-in `.tool-versions` for Elixir 1.20.4 and Erlang/OTP 29.1.2.
+
+```sh
+mix deps.get
+mix compile --warnings-as-errors
+mix test --warnings-as-errors
+mix coveralls
+```
+
+The tests run locally without Asterisk. The TCP client test uses an ephemeral
+loopback port to verify login, event dispatch, and action responses with
+GenStateMachine 3.0. Live UCX/AMI and TLS integration still require a real server.
+The Action ID benchmark utility is in `bench/time_server.exs`.
+
+The application compiles without warnings. A fresh dependency build still emits
+deprecations from GenStateMachine 3.0 and MixTestWatch 1.4, plus any native linker
+warnings caused by local compiler flags; dependency sources are not patched locally.
+
 ## Configuration
 
 #### Elixir Project
