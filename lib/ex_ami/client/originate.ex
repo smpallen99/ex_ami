@@ -1,5 +1,4 @@
 defmodule ExAmi.Client.Originate do
-  require Logger
   alias ExAmi.Client
 
   def dial(sever_name, channel, other, variables \\ [], callback \\ nil, opts \\ [])

@@ -8,9 +8,9 @@ defmodule ExAmi.Connection do
     def new(), do: %__MODULE__{}
     def new(opts), do: struct(new(), opts)
 
-    def read_line_not_implemented(_), do: :erlang.error('Not implemented')
-    def send_not_implemented(_), do: :erlang.error('Not implemented')
-    def close_not_implemented(_), do: :erlang.error('Not implemented')
+    def read_line_not_implemented(_), do: :erlang.error(~c"Not implemented")
+    def send_not_implemented(_), do: :erlang.error(~c"Not implemented")
+    def close_not_implemented(_), do: :erlang.error(~c"Not implemented")
   end
 
   def behaviour_info(:callbacks),

@@ -177,9 +177,6 @@ defmodule ExAmi.Message do
     else
       {:ok, response_text} ->
         String.match?(response_text, ~r/omplete/)
-
-      _ ->
-        false
     end
   end
 
